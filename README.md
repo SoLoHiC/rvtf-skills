@@ -1,5 +1,7 @@
 # RVTF Skills
 
+[中文说明](./README-CN.md)
+
 Requirements-to-Verification Traceability Framework (RVTF) is a skill set for
 controlling the gap between requirements, implementation, review findings, and
 delivery claims.
