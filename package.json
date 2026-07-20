@@ -1,0 +1,39 @@
+{
+  "name": "rvtf-skills",
+  "version": "0.1.0",
+  "description": "Requirements-to-Verification Traceability Framework skills and adapters.",
+  "type": "module",
+  "files": [
+    "README.md",
+    "VERSION",
+    "skills",
+    "scripts"
+  ],
+  "scripts": {
+    "validate": "scripts/validate.sh",
+    "skills:list": "npx skills add . --list",
+    "skills:add:project": "npx skills add . --skill '*' -a codex -y --copy",
+    "skills:add:global:codex": "npx skills add . --skill '*' -g -a codex -y --copy",
+    "package": "scripts/package.sh"
+  },
+  "keywords": [
+    "agent-skills",
+    "codex",
+    "rvtf",
+    "requirements",
+    "verification",
+    "traceability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/SoLoHiC/rvtf-skills.git"
+  },
+  "homepage": "https://github.com/SoLoHiC/rvtf-skills#readme",
+  "bugs": {
+    "url": "https://github.com/SoLoHiC/rvtf-skills/issues"
+  },
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  }
+}
