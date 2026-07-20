@@ -1,10 +1,10 @@
 # RVTF Skills
 
-[English](./README.md)
-
 Requirements-to-Verification Traceability Framework (RVTF，需求到验证的可追溯交付框架) 是一组用于控制需求、实现、评审发现和交付声明之间偏差的 agent skills。
 
 它面向 agentic 软件工程场景：计划可能很详细，测试可能已经通过，任务列表也可能已经完成，但我们仍然需要证明每一项需求都被充分实现，并且评审过程中发现的问题没有无边界地膨胀成新需求。
+
+中文 | [English](./README.md)
 
 ## RVTF 解决什么问题
 
