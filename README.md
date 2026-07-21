@@ -20,6 +20,9 @@ RVTF turns delivery work into a traceable decision ledger:
 - `implemented` and `verified` stay separate.
 - Weak evidence becomes an evidence gap, not a passing claim.
 - Review findings are classified before they become work.
+- Formal review can be bounded through applicability decisions, review
+  contracts, coverage batches, frozen finding sets, remediation cycles, and
+  controlled reopens.
 - New required work enters through a scope amendment decision.
 - Cross-cutting constraints such as security, privacy, data integrity, compatibility, migrations, and regression risk are tracked explicitly.
 - Completion is stated through a closure packet with verified rows, deferred gaps, blocked work, rejected extras, accepted amendments, and residual risk.
@@ -42,6 +45,8 @@ Common triggers:
 - A phase is "done" because tasks are complete, but requirement coverage is unclear.
 - Tests pass, but some acceptance criteria were not checked line by line.
 - Code review starts producing extra work that may be useful but was not required.
+- Multiple review rounds keep introducing new findings after each remediation
+  pass, and you need a stable review boundary.
 - Review discovers a safety, privacy, compatibility, or data-integrity issue missing from the original spec.
 - Multiple agents or phases need a shared evidence object instead of prose summaries.
 - You need to decide whether a delivery is complete, incomplete, blocked, or complete with accepted residual risk.
@@ -54,8 +59,8 @@ RVTF can be light or strict depending on risk:
 | --- | --- |
 | `discovery` | Exploring or prototyping without a completion claim. |
 | `lite` | Small bounded changes with low risk. |
-| `standard` | Multi-step delivery, phase work, review, or handoff. |
-| `strict` | Security, privacy, migrations, compatibility, money, production risk, or cross-agent execution. |
+| `standard` | Multi-step delivery, phase work, review, or handoff. Requires a review-applicability decision. |
+| `strict` | Security, privacy, migrations, compatibility, money, production risk, or cross-agent execution. Requires bounded review governance and independent review evidence for the affected risk scope. |
 
 Do not lower the mode to justify an unsupported completion claim.
 
@@ -63,7 +68,7 @@ Do not lower the mode to justify an unsupported completion claim.
 
 | Skill | Purpose |
 | --- | --- |
-| `tracing-requirements-to-verification` | Core RVTF method: requirement IDs, acceptance criteria, verification, evidence quality, review intake, gap ledger, scope amendments, and closure packets. |
+| `tracing-requirements-to-verification` | Core RVTF method: requirement IDs, acceptance criteria, verification, evidence quality, bounded review governance, review intake, gap ledger, scope amendments, and closure packets. |
 | `adapting-rvtf-to-superpowers` | Adds RVTF traceability to Superpowers workflows such as brainstorming, writing plans, code review, verification, branch finishing, and skill writing. |
 | `adapting-rvtf-to-agent-skills` | Adds RVTF to agent-skill planning, incremental implementation, doubt handling, code review, and definition-of-done practices. |
 | `adapting-rvtf-to-gsd` | Connects RVTF to GSD goal convergence, phase validation, ship decisions, and gap-control workflows. |
@@ -76,7 +81,9 @@ evidence thread through those existing workflows.
 
 RVTF does not prove that original requirements are correct. It also does not
 replace product judgment, security review, domain expertise, automated testing,
-or code review. It makes those decisions explicit enough to audit and revisit.
+or code review. Bounded review governance does not suppress legitimate late
+required gaps; it makes late findings carry an explicit traceability and
+delivery-decision record.
 
 ## Install
 

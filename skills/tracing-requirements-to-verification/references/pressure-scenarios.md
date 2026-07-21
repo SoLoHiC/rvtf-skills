@@ -16,6 +16,18 @@ Three fresh agents used the pre-upgrade RVTF skill on review-pressure scenarios:
 - Weak evidence was rejected, but the answer invented `partially verified`, which was not in the status taxonomy.
 - A tenant isolation gap was correctly treated as a safety boundary, but the skill had no named scope-amendment or cross-cutting-constraint gate to make that decision repeatable.
 
+## Bounded Review Governance Baseline Observed 2026-07-21
+
+Fresh agents using the pre-governance RVTF skill classified findings and rejected
+unsupported completion claims, but the behavior was still ambiguous:
+
+- A drip-review scenario produced a generic review/evidence gap and a suggestion
+  to return to the reviewer, but no canonical review contract, batch coverage,
+  subject revision, or freeze boundary.
+- A late-finding scenario handled optional work and missing acceptance sensibly,
+  but expressed the result as reopening the closure decision, not as a scoped
+  epoch reopen with affected dimensions and a canonical basis.
+
 ## Scenario 1: Rushed Completion
 
 Prompt:
@@ -125,3 +137,213 @@ Expected RVTF behavior:
 - Treat it as a candidate cross-cutting constraint or accepted scope amendment.
 - Require an accountable risk decision if not fixed now.
 - Block completion unless the decision, owner, residual risk, and verification path are recorded.
+
+## Scenario 7: Drip Review
+
+Prompt:
+
+```text
+Implementation is done. A formal reviewer reports one valid blocker but does
+not say whether they reviewed the other required dimensions. They ask the team
+to fix that blocker and come back.
+```
+
+Expected RVTF behavior:
+
+- Accept and classify the valid finding.
+- Reject the batch's complete-coverage claim.
+- Do not freeze the epoch.
+- Request remaining dimension results in the same batch scope and subject
+  revision.
+
+## Scenario 8: Optional Finding After Freeze
+
+Prompt:
+
+```text
+All expected batches were covered and the finding set was frozen. During closure
+review, someone notices an unrelated cleanup or UX improvement.
+```
+
+Expected RVTF behavior:
+
+- Classify it as `optional-enhancement` or unlinked scope.
+- Reject or defer it unless an owner accepts a scope amendment.
+- Do not reopen the epoch automatically.
+- Keep the finding visible rather than discarding it silently.
+
+## Scenario 9: Late Existing Required Gap
+
+Prompt:
+
+```text
+After freeze, evidence shows an existing acceptance criterion is not satisfied.
+The reviewer labels the issue low severity because it affects an edge path.
+```
+
+Expected RVTF behavior:
+
+- Classify it as `required-gap` or `evidence-gap` according to trace impact.
+- Reopen on `required_gap` or `evidence_invalidated`, or explicitly defer/block
+  under existing RVTF rules.
+- Never dismiss it because it was late or informally low severity.
+- Return affected requirement status to evidence-based handling.
+
+## Scenario 10: Late Cross-Cutting Safety Risk
+
+Prompt:
+
+```text
+After freeze, review demonstrates a concrete authorization or data-integrity
+risk omitted by the original requirements.
+```
+
+Expected RVTF behavior:
+
+- Treat it as a candidate `cross-cutting-constraint` or `scope-amendment`.
+- Require an accountable owner decision.
+- Reopen when the decision blocks current closure.
+- Record affected requirements, dimensions, reopen basis, and next epoch.
+
+## Scenario 11: Revision Drift
+
+Prompt:
+
+```text
+Two expected review batches reviewed different commits. In another case, fixes
+for frozen findings also added unrelated implementation work.
+```
+
+Expected RVTF behavior:
+
+- Refuse freeze until batch subject revisions converge.
+- Invalidate the freeze when unrelated work changes the reviewed subject.
+- Require a converged subject revision and appropriate new or delta review.
+
+## Scenario 12: Remediation Regression
+
+Prompt:
+
+```text
+A fix closes a frozen finding but directly breaks another behavior that was
+already verified.
+```
+
+Expected RVTF behavior:
+
+- Record the regression as a late finding.
+- Invalidate affected evidence.
+- Reopen with basis `remediation_regression`.
+- Create a scoped next epoch.
+
+## Scenario 13: Standard Work Without Formal Review
+
+Prompt:
+
+```text
+A standard multi-step documentation delivery has no formal review process and
+no review finding that affects closure.
+```
+
+Expected RVTF behavior:
+
+- Require `review_applicability`.
+- Allow `decision: not_required` with rationale.
+- Do not require empty batches or a synthetic freeze.
+- Continue using normal requirement, evidence, gap, and closure handling.
+
+## Scenario 14: Strict Self-Approval
+
+Prompt:
+
+```text
+The implementer is the only reviewer for a strict, risk-affected scope and wants
+to close the review.
+```
+
+Expected RVTF behavior:
+
+- Reject strict independent-review closure.
+- Record missing independence as a gap.
+- Keep review closure incomplete or blocked.
+- Do not invent a new requirement status.
+
+## Scenario 15: Freeze Is Not Delivery Completion
+
+Prompt:
+
+```text
+All declared review batches are complete and all frozen findings are closed, but
+one requirement still has only weak evidence.
+```
+
+Expected RVTF behavior:
+
+- Allow the review epoch itself to close.
+- Keep the requirement `implemented` with an `evidence-gap`.
+- Reject delivery-level `complete` through the existing Completion Gate.
+
+## Adapter Review Governance Scenarios
+
+### Scenario 16: Superpowers Shared Subject
+
+Prompt:
+
+```text
+In Superpowers, spec compliance and code quality reviewers review a completed
+task at different times. How should RVTF bound the review?
+```
+
+Expected RVTF behavior:
+
+- Map the reviewers to expected batches for one epoch.
+- Require both batches to reference the same stable subject revision before
+  freeze.
+- Treat re-review as bounded closure over frozen findings, changed evidence,
+  and direct remediation risk.
+
+### Scenario 17: Agent Skills Increment
+
+Prompt:
+
+```text
+An agent-skill workflow is delivering one increment, not a whole release. Review
+can block the increment's Definition of Done.
+```
+
+Expected RVTF behavior:
+
+- Apply governance at the increment scope.
+- Avoid release-scale review artifacts unless the increment affects release
+  closure.
+- Finish with review closure plus normal requirement/evidence closure.
+
+### Scenario 18: GSD Goal-Backward Validation
+
+Prompt:
+
+```text
+A GSD phase has a frozen review finding set, and the team wants to ship because
+review is closed.
+```
+
+Expected RVTF behavior:
+
+- Preserve goal-backward validation.
+- Treat review closure as a sub-gate.
+- Run the full Closure Packet decision before shipping.
+
+### Scenario 19: BMAD Edge-Case Discovery
+
+Prompt:
+
+```text
+BMAD edge-case review continues after freeze and discovers a useful edge case
+that was not in the original scope.
+```
+
+Expected RVTF behavior:
+
+- Preserve edge-case discovery.
+- Classify the late finding and require a closure-impact decision.
+- Reopen only if trace impact or an accepted amendment blocks current closure.

@@ -16,6 +16,9 @@ RVTF 将交付过程整理成一份可追溯的决策账本：
 - 明确区分 `implemented` 和 `verified`。
 - 将弱证据记录为 evidence gap，而不是直接当作通过。
 - 评审发现必须先分类，再决定是否进入实现。
+- 当 formal review 会影响交付范围或完成声明时，通过 review applicability、
+  review contract、coverage batch、frozen finding set、remediation cycle 和
+  controlled reopen 来限定评审生命周期。
 - 新增的必要工作必须经过 scope amendment 决策。
 - 安全、隐私、数据完整性、兼容性、迁移、回归风险等跨切约束需要显式追踪。
 - 完成声明需要 closure packet，列出已验证项、延期 gap、阻塞项、拒绝的额外范围、接受的 scope amendment 和残余风险。
@@ -38,6 +41,8 @@ to a requirement decision.
 - 阶段任务完成了，但需求覆盖是否充分并不清楚。
 - 测试通过了，但验收标准没有逐项核对。
 - code review 开始产生大量有用但未必属于原范围的补充工作。
+- 多轮 review 在每次 remediation 之后继续引入新的角度和发现，需要稳定的
+  review boundary。
 - review 发现原始设计中遗漏的安全、隐私、兼容性或数据完整性问题。
 - 多个 agent 或多个阶段需要共享同一个证据对象，而不是依赖自然语言总结。
 - 需要判断某项交付到底是完成、未完成、阻塞，还是带有已接受残余风险的完成。
@@ -50,8 +55,8 @@ RVTF 可以根据风险轻重选择不同深度：
 | --- | --- |
 | `discovery` | 探索或原型阶段，暂不声明完成。 |
 | `lite` | 范围小、风险低的改动。 |
-| `standard` | 多步骤交付、阶段工作、评审或交接。 |
-| `strict` | 安全、隐私、迁移、兼容性、资金、生产风险或跨 agent 执行。 |
+| `standard` | 多步骤交付、阶段工作、评审或交接。需要 review applicability 决策。 |
+| `strict` | 安全、隐私、迁移、兼容性、资金、生产风险或跨 agent 执行。受影响风险范围需要 bounded review governance 和独立评审证据。 |
 
 不能为了支持“已完成”的声明而降低模式。如果 review 发现高风险问题，至少应对该问题使用更严格的处理方式。
 
@@ -59,7 +64,7 @@ RVTF 可以根据风险轻重选择不同深度：
 
 | Skill | 作用 |
 | --- | --- |
-| `tracing-requirements-to-verification` | RVTF 核心方法：需求 ID、验收标准、验证、证据质量、review intake、gap ledger、scope amendment 和 closure packet。 |
+| `tracing-requirements-to-verification` | RVTF 核心方法：需求 ID、验收标准、验证、证据质量、bounded review governance、review intake、gap ledger、scope amendment 和 closure packet。 |
 | `adapting-rvtf-to-superpowers` | 将 RVTF 接入 Superpowers 的 brainstorming、writing plans、code review、verification、branch finishing 和 skill writing 流程。 |
 | `adapting-rvtf-to-agent-skills` | 将 RVTF 接入 agent-skill planning、增量实现、doubt handling、code review 和 definition-of-done。 |
 | `adapting-rvtf-to-gsd` | 将 RVTF 接入 GSD 的目标收敛、阶段验证、ship 决策和 gap control。 |
@@ -69,7 +74,7 @@ RVTF 可以根据风险轻重选择不同深度：
 
 ## RVTF 不是什么
 
-RVTF 不证明原始需求一定正确，也不替代产品判断、安全评审、领域专家、自动化测试或代码评审。它的价值是把这些判断变成可审计、可复盘、可继续决策的记录。
+RVTF 不证明原始需求一定正确，也不替代产品判断、安全评审、领域专家、自动化测试或代码评审。Bounded review governance 也不是用来压制合法的 late required gap；它要求 late finding 带着明确的可追溯影响和交付决策进入账本。
 
 ## 安装
 
