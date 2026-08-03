@@ -95,8 +95,8 @@ Before coding:
 
 - Every host task, story, phase, or increment lists the applicable
   `requirement_ids`, `acceptance_item_ids`, `journey_ids`, and
-  `journey_step_ids`. Journey lists may be empty only when applicability does
-  not require them.
+  `journey_step_ids`. Journey lists may be empty when that host unit does not
+  cover an applicable Journey or the scope does not require Journey Trace.
 - Every requirement has at least one task, explicit deferral, or rejection.
 - Every Acceptance Item has at least one host work mapping, explicit deferral,
   or valid rejection and a concrete verification method.

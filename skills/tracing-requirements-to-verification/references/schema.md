@@ -153,7 +153,6 @@ journeys:
         observable_outcome: The runner loads the declared sealed inputs for all replay modes.
         acceptance_item_ids:
           - P16-REPLAY-001-AI-001
-          - P16-TENANT-001-AI-001
       - id: J-P16-REPLAY-001-S2
         observable_outcome: The runner rejects any attempt to read mutable live state.
         acceptance_item_ids:
@@ -204,10 +203,8 @@ host_trace_mappings:
       - P16-TENANT-001
     acceptance_item_ids:
       - P16-TENANT-001-AI-001
-    journey_ids:
-      - J-P16-REPLAY-001
-    journey_step_ids:
-      - J-P16-REPLAY-001-S1
+    journey_ids: []
+    journey_step_ids: []
 ```
 
 `requirements[].acceptance[]` is the only canonical Acceptance Item store. IDs
