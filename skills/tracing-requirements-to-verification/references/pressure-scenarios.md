@@ -500,3 +500,129 @@ Expected RVTF behavior:
 - Reference that stable Acceptance Item ID from both Journeys.
 - Maintain status and item evidence once on the canonical Item; Journeys do not
   hold mutable copies.
+
+## Journey Trace v1 Forward Test Observed 2026-08-03
+
+Seven fresh agents each read the modified local core skill and answered one of
+the exact scenarios 20-26 without reading this file, the design proposal, or the
+implementation plan.
+
+```yaml
+forward_tests:
+  - scenario_id: foundation-without-journey-closure
+    scenario_number: 20
+    baseline_behavior: A conservative answer rejected completion but relied on an actor-path rule absent from the old skill.
+    expected_behavior:
+      - rejects foundation as Journey or delivery closure
+      - keeps Journey implemented
+      - records a Journey-only evidence gap
+    observed_behavior: "A passing foundation gate does not complete delivery: without connected actor-path and outcome evidence, the applicable Journey stays implemented and delivery is incomplete."
+    result: pass
+    evidence: Fresh-agent response separated valid Item evidence from the missing Journey path target.
+
+  - scenario_id: all-items-verified-without-path-proof
+    scenario_number: 21
+    baseline_behavior: "Under the current skill, the requirements are verified, the Journey has no representable status, and the delivery can be called complete despite lacking end-to-end evidence."
+    expected_behavior:
+      - keeps Requirements and Items verified
+      - keeps Journey implemented
+      - rejects delivery complete
+    observed_behavior: "Requirement verified; Acceptance Items verified; Journey implemented; delivery incomplete."
+    result: pass
+    evidence: Fresh-agent response targeted the gap only to the Journey and required path evidence.
+
+  - scenario_id: path-passes-with-weak-item-evidence
+    scenario_number: 22
+    baseline_behavior: The old skill rejected weak criterion evidence but had no canonical Item or dependent Journey status.
+    expected_behavior:
+      - keeps the weak Item implemented
+      - prevents parent Requirement and dependent Journey verification
+      - refuses implicit evidence substitution
+    observed_behavior: "A successful walkthrough cannot substitute implicitly for weak or missing Item evidence."
+    result: pass
+    evidence: Fresh-agent response propagated the Item evidence gap to its Requirement and dependent Journey.
+
+  - scenario_id: domain-label-does-not-decide-applicability
+    scenario_number: 23
+    baseline_behavior: The old answer rejected the API label but had no Journey applicability record or actor-goal-path trigger.
+    expected_behavior:
+      - ignores technical domain as the decision basis
+      - marks the ordered actor-goal path required
+      - requires Step mappings and path evidence
+    observed_behavior: "Applicability: required — but not merely because it is an API."
+    result: pass
+    evidence: Fresh-agent response named authentication, pagination, rate-limit recovery, retry, and consistent result as the path trigger.
+
+  - scenario_id: valid-not-required-decision
+    scenario_number: 24
+    baseline_behavior: The old answer required no Journey but could not record an auditable applicability decision.
+    expected_behavior:
+      - records not_required with rationale
+      - creates no synthetic Journey
+      - preserves exact item evidence
+    observed_behavior: "decision: not_required; rationale: Exact item evidence proves the result; no ordered or causal path exists; journeys: []"
+    result: pass
+    evidence: Fresh-agent response produced the explicit applicability artifact and rejected path-evidence fabrication.
+
+  - scenario_id: journey-gap-after-review-freeze
+    scenario_number: 25
+    baseline_behavior: The old answer preserved review closure but lacked a modeled path-evidence target.
+    expected_behavior:
+      - keeps review closed when accepted evidence remains valid
+      - fails the delivery Completion Gate
+      - reopens on evidence_invalidated only when accepted evidence becomes invalid
+    observed_behavior: "If missing path evidence is first discovered after review freeze, fail the Completion Gate but do not automatically reopen the closed review."
+    result: pass
+    evidence: Fresh-agent response kept the Journey implemented and targeted the gap to the Journey and Steps.
+
+  - scenario_id: shared-item-across-journeys
+    scenario_number: 26
+    baseline_behavior: The old answer inferred non-duplication but had no Journey reference or roll-up rule.
+    expected_behavior:
+      - stores one canonical nested Item
+      - references one stable ID from both Journeys
+      - maintains Item status and evidence once
+    observed_behavior: "One Acceptance Item may support multiple Journeys; update its status once on the canonical Item."
+    result: pass
+    evidence: Fresh-agent response also required each dependent Journey to prove its own path and outcome.
+```
+
+### Adapter Forward Tests
+
+Four additional fresh agents read the modified core plus one adapter each. They
+did not read the design, plan, or this pressure-scenario file.
+
+| Adapter | Observed behavior | Result |
+| --- | --- | --- |
+| Superpowers | Rejected completion after task and review closure because the Journey receipt was missing; reported `requirement_ids`, `acceptance_item_ids`, `journey_ids`, and `journey_step_ids`; preserved task, reviewer, delegation, and branch-finishing choices. | pass |
+| Agent Skills | Allowed only bounded increment progress for two evidenced Items, kept the connected Journey incomplete, refused an unrelated synthetic Journey, and preserved the increment/review lifecycle. | pass |
+| BMAD | Kept Story as a host object and candidate Journey source, stored three ACs as canonical Items, represented required alternative paths separately when needed, and split UAT item evidence from path evidence. | pass |
+| GSD | Kept technically proven Items/Requirements intact where valid, held the MVP Journey `implemented` without user-flow UAT, rejected shipping, and preserved phase/goal/verification ownership. | pass |
+
+### Existing Scenario Regression 1-19
+
+Three fresh agents exercised every existing scenario against the modified local
+core in isolated batches; the adapter batch also read the relevant modified
+adapters. No agent read this file before answering.
+
+| Scenario | Decisive observed behavior | Result |
+| --- | --- | --- |
+| 1 | Rejected completion from passing tests; required line-by-line trace and the full Completion Gate. | pass |
+| 2 | Produced compact host tasks with stable IDs, canonical Items, concrete verification, and no copied state. | pass |
+| 3 | Preserved each host method and overlaid trace mappings, evidence, gaps, and phase closure. | pass |
+| 4 | Classified required gap, cross-cutting concern, and optional enhancement before authorizing work. | pass |
+| 5 | Removed `verified`, kept the affected Item `implemented`, and opened a normal-gate evidence gap. | pass |
+| 6 | Treated tenant isolation as a strict cross-cutting constraint and blocked unsupported completion. | pass |
+| 7 | Accepted the blocker but kept the batch incomplete and epoch collecting until all dimensions were covered. | pass |
+| 8 | Deferred or rejected the late optional enhancement without automatic reopen. | pass |
+| 9 | Reopened a late existing acceptance failure on `required_gap` despite its low-severity label. | pass |
+| 10 | Reopened the concrete authorization/data-integrity risk on `cross_cutting_risk` with an owner decision. | pass |
+| 11 | Rejected freeze for revision drift and invalidated freeze when unrelated remediation changed the subject. | pass |
+| 12 | Invalidated affected evidence and reopened the direct regression on `remediation_regression`. | pass |
+| 13 | Recorded review `not_required` with rationale and created no synthetic batches or freeze. | pass |
+| 14 | Rejected strict self-approval and required independent review evidence. | pass |
+| 15 | Allowed review closure as a sub-gate but kept delivery incomplete on weak Requirement evidence. | pass |
+| 16 | Preserved separate Superpowers review batches while requiring one epoch and stable subject revision. | pass |
+| 17 | Scoped Agent Skills review governance to the increment rather than the whole release. | pass |
+| 18 | Preserved GSD goal-backward validation and refused shipping from review closure alone. | pass |
+| 19 | Preserved BMAD edge-case discovery and reopened only when trace impact or an accepted amendment blocked closure. | pass |
