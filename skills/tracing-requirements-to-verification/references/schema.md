@@ -34,21 +34,44 @@ requirements:
       rationale: Required for trustworthy offline comparison.
     statement: Baseline, candidate, and test replay use sealed inputs.
     acceptance:
-      - id: P16-REPLAY-001-A
-        criterion: Replays cannot read mutable live run state.
+      - id: P16-REPLAY-001-AI-001
+        criterion: Baseline, candidate, and test replay load the declared sealed inputs.
+        source_ref:
+          path: docs/design.md
+          anchor: replay-isolation
+          revision: sha256:0123abcd
         verification:
           method: automated-test
           command: pnpm test:p1.6 -- replay-isolation
+          expected: exits 0 with every replay bound to its declared sealed input
+        status: verified
+        evidence:
+          - artifact: artifacts/replay-sealed-input.json
+            subject_revision: def456
+            quality: strong
+            target: P16-REPLAY-001-AI-001
+            proves: All three replay modes use their declared sealed inputs.
+            normal_gate: true
+        gaps: []
+      - id: P16-REPLAY-001-AI-002
+        criterion: Replays cannot read mutable live run state.
+        source_ref:
+          path: docs/acceptance.md
+          anchor: live-state-rejection
+          revision: sha256:5678ef01
+        verification:
+          method: automated-test
+          command: pnpm test:p1.6 -- replay-live-state-rejection
           expected: exits 0 and fails if live state is read
-    tasks:
-      - Task 3
-    evidence:
-      - artifact: tests/replay-isolation.test.ts
-        quality: strong
-        covers:
-          - sealed input replay
-          - live state rejection
-        normal_gate: true
+        status: verified
+        evidence:
+          - artifact: artifacts/replay-live-state-rejection.json
+            subject_revision: def456
+            quality: strong
+            target: P16-REPLAY-001-AI-002
+            proves: The replay runner rejects mutable live state.
+            normal_gate: true
+        gaps: []
     status: verified
     gaps: []
 
@@ -60,13 +83,136 @@ requirements:
       - replay storage
     statement: New data access cannot expose records outside the caller tenant.
     acceptance:
-      - id: P16-TENANT-001-A
+      - id: P16-TENANT-001-AI-001
         criterion: Tenant A cannot read tenant B records.
+        source_ref:
+          path: docs/design.md
+          anchor: tenant-isolation
+          revision: sha256:0123abcd
         verification:
           method: automated-test
           command: pnpm test:p1.6 -- tenant-isolation
           expected: exits 0
-    status: pending
+        status: verified
+        evidence:
+          - artifact: artifacts/tenant-isolation.json
+            subject_revision: def456
+            quality: strong
+            target: P16-TENANT-001-AI-001
+            proves: Cross-tenant reads are rejected.
+            normal_gate: true
+        gaps: []
+    status: verified
+    gaps: []
+
+  - id: P16-RECOVERY-001
+    capability: replay recovery
+    type: behavior
+    source: docs/design.md#replay-recovery
+    validity:
+      status: accepted
+      owner: phase-owner
+      rationale: Recovery is required, but its path proof is intentionally deferred.
+    statement: An interrupted replay can resume from sealed state and reach a consistent result.
+    acceptance:
+      - id: P16-RECOVERY-001-AI-001
+        criterion: Resume uses the sealed checkpoint and produces the expected comparison.
+        source_ref:
+          path: docs/design.md
+          anchor: replay-recovery
+          revision: sha256:0123abcd
+        verification:
+          method: end-to-end-test
+          command: pnpm test:p1.6 -- replay-recovery
+          expected: resumed comparison matches an uninterrupted sealed replay
+        status: deferred
+        evidence: []
+        gaps:
+          - GAP-P16-001
+    status: deferred
+    gaps:
+      - GAP-P16-001
+
+journey_applicability:
+  scope_ref: phase:P1.6
+  decision: required
+  rationale: Trustworthy replay acceptance depends on an ordered automation path reaching a consistent comparison result.
+  triggers:
+    - ordered observable steps
+    - path crosses dataset and evaluation boundaries
+    - item evidence alone cannot prove the expected outcome
+
+journeys:
+  - id: J-P16-REPLAY-001
+    name: Produce a trustworthy sealed replay comparison
+    actor: evaluation-runner
+    goal: Compare baseline, candidate, and test behavior without reading live state.
+    expected_outcome: The comparison result is derived only from the declared sealed inputs.
+    steps:
+      - id: J-P16-REPLAY-001-S1
+        observable_outcome: The runner loads the declared sealed inputs for all replay modes.
+        acceptance_item_ids:
+          - P16-REPLAY-001-AI-001
+      - id: J-P16-REPLAY-001-S2
+        observable_outcome: The runner rejects any attempt to read mutable live state.
+        acceptance_item_ids:
+          - P16-REPLAY-001-AI-002
+    path_evidence:
+      - artifact: artifacts/sealed-replay-journey.json
+        subject_revision: def456
+        covers_steps:
+          - J-P16-REPLAY-001-S1
+          - J-P16-REPLAY-001-S2
+        proves_order: true
+        proves_outcome: true
+        quality: strong
+        normal_gate: true
+    status: verified
+    gaps: []
+  - id: J-P16-RECOVERY-001
+    name: Recover an interrupted sealed replay
+    actor: evaluation-runner
+    goal: Resume interrupted work without reading mutable live state.
+    expected_outcome: The resumed comparison matches an uninterrupted sealed replay.
+    steps:
+      - id: J-P16-RECOVERY-001-S1
+        observable_outcome: The runner resumes from the sealed checkpoint and produces the expected comparison.
+        acceptance_item_ids:
+          - P16-RECOVERY-001-AI-001
+    path_evidence: []
+    status: deferred
+    gaps:
+      - GAP-P16-001
+
+host_trace_mappings:
+  - host_kind: task
+    host_ref: Task 3
+    requirement_ids:
+      - P16-REPLAY-001
+    acceptance_item_ids:
+      - P16-REPLAY-001-AI-001
+      - P16-REPLAY-001-AI-002
+    journey_ids:
+      - J-P16-REPLAY-001
+    journey_step_ids:
+      - J-P16-REPLAY-001-S1
+      - J-P16-REPLAY-001-S2
+```
+
+`requirements[].acceptance[]` is the only canonical Acceptance Item store. IDs
+remain stable across task or source-bullet reordering; `source_ref` records
+provenance and does not generate identity. Journeys reference Item IDs and never
+copy Item criterion, status, or evidence. Journey Steps have no separate status.
+
+For an isolated change without a path trigger, use the same Requirement and Item
+shape and record:
+
+```yaml
+journey_applicability:
+  scope_ref: change:metadata-correction
+  decision: not_required
+  rationale: Exact item evidence proves the result; no ordered or causal path exists.
+journeys: []
 ```
 
 ## Gap Ledger
@@ -74,13 +220,16 @@ requirements:
 ```yaml
 gaps:
   - id: GAP-P16-001
-    requirement: P16-REPLAY-002
+    requirement: P16-RECOVERY-001
+    acceptance_item: P16-RECOVERY-001-AI-001
+    journey: J-P16-RECOVERY-001
+    journey_step: J-P16-RECOVERY-001-S1
     type: evidence-gap
-    summary: Production replay trust anchor is not implemented.
-    impact: Replay evidence can prove local isolation but not production provenance.
+    summary: The recovery Item and connected Step lack fresh evidence.
+    impact: The Acceptance Item, parent Requirement, and recovery Journey cannot be verified.
     decision: deferred
     owner: next-phase-planning
-    close_condition: Add provenance verification and a failing acceptance test.
+    close_condition: Record strong item evidence plus path evidence covering the declared Step and outcome.
 
 review_findings:
   - id: RF-P16-001
@@ -265,12 +414,33 @@ closure:
     epoch: RE-P16-001
     status: closed
     remaining_late_findings: []
-  verified:
-    - P16-REPLAY-001
-  deferred:
-    - GAP-P16-001
-  blocked: []
-  rejected: []
+  requirements:
+    verified:
+      - P16-REPLAY-001
+      - P16-TENANT-001
+    deferred:
+      - P16-RECOVERY-001
+    blocked: []
+    rejected: []
+  acceptance_items:
+    verified:
+      - P16-REPLAY-001-AI-001
+      - P16-REPLAY-001-AI-002
+      - P16-TENANT-001-AI-001
+    deferred:
+      - P16-RECOVERY-001-AI-001
+    blocked: []
+    rejected: []
+  journeys:
+    verified:
+      - J-P16-REPLAY-001
+    deferred:
+      - J-P16-RECOVERY-001
+    blocked: []
+    rejected: []
+  gaps:
+    deferred:
+      - GAP-P16-001
   accepted_amendments:
     - AMEND-P16-001
   verification_runs:
@@ -278,25 +448,41 @@ closure:
       result: pass
       date: 2026-07-18
   residual_risk:
-    - Production provenance still needs an external trust anchor.
+    - Recovery behavior remains unavailable until its deferred evidence gap closes.
   next_phase_entry:
-    - Decide whether P1.7 owns production provenance.
+    - P1.7 owns the replay-recovery evidence gap.
 ```
 
 ## Status Rules
 
-- `verified` requires evidence.
+- Requirements, Acceptance Items, and Journeys use `pending`, `implemented`,
+  `verified`, `deferred`, `blocked`, and `rejected`.
+- Journey Steps do not have a formal status.
+- `verified` requires target-specific evidence.
 - `implemented` is not enough for completion.
 - Partial evidence is `implemented` plus one or more `evidence-gap` entries.
 - `deferred` requires a reason and close condition.
 - `blocked` requires a specific missing input or external state.
 - `rejected` requires a scope decision.
+- A Requirement can be `verified` only when every active required Acceptance Item
+  is `verified`, Requirement-level constraints are verified, and evidence gaps
+  are closed.
+- A required deferred Item makes its parent Requirement `deferred`; a blocked
+  Item makes it `blocked`. Exclude a rejected Item only through a validity or
+  scope decision.
+- A Journey can be `verified` only when every required Step maps to verified
+  Items and strong path evidence proves Step order, connection, and expected
+  outcome.
+- All Items being `verified` never auto-verifies a Journey.
+- A Journey-only path gap keeps the Journey below `verified` and blocks delivery
+  completion without downgrading otherwise valid Item or Requirement evidence.
 - Review lifecycle and dimension coverage statuses are not requirement statuses.
   Do not use them in the `requirements[].status` field.
 
 ## Closure Statuses
 
-- `complete`: all required rows verified and no unresolved blocking findings.
+- `complete`: all required Requirements and all applicable Journeys are verified,
+  with no unresolved blocking findings.
 - `complete_with_deferred_gaps`: required deferrals are explicit, owned, and non-blocking.
 - `complete_with_residual_risk`: risk remains but is accepted with owner and rationale.
 - `incomplete`: required work or evidence is missing.

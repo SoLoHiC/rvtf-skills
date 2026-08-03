@@ -10,6 +10,26 @@ Before choosing artifact depth:
 - Use `strict` for security, privacy, data integrity, compatibility, migrations, money, production risk, or cross-agent execution.
 - Raise the mode for a risky finding even if the rest of the work stays lighter.
 
+## Journey Applicability Gate
+
+Before planning implementation or claiming closure:
+
+- In `discovery`, record candidate Journeys only; there is no completion claim.
+- In `lite`, make a Journey applicability decision whenever an actor-goal path
+  has ordered or causally connected observable Steps.
+- In `standard` and `strict`, record `journey_applicability.decision` as
+  `required` or `not_required` with a rationale.
+- Mark Journey Trace `required` when item evidence alone cannot prove the
+  outcome, Steps depend on order or state transitions, the path crosses
+  boundaries, failure/recovery affects acceptance, or closure must be judged
+  backward from an actor goal.
+- Do not decide from technical labels. UI, CLI, API, migration, infrastructure,
+  human, service, and automation work all use the same triggers.
+- Strict risk does not automatically imply Journey applicability.
+- Use `not_required` only when exact item-level verification fully proves the
+  isolated result and no ordered or causal path exists. Do not invent a
+  synthetic Journey.
+
 ## Review Governance Applicability Gate
 
 Before review can affect closure or scope:
@@ -38,7 +58,14 @@ Before implementation planning:
 
 - Capability tree exists.
 - Requirement IDs are stable and complete enough for the phase.
-- Each requirement has acceptance criteria.
+- Each requirement has canonical Acceptance Items nested under
+  `requirements[].acceptance[]`.
+- Every Acceptance Item has a stable delivery-scope ID, source reference,
+  criterion, verification method, initial status, and gap/evidence fields.
+- No task or Journey duplicates mutable Acceptance Item status or evidence.
+- Journey applicability is recorded at the depth required by the usage mode.
+- Every required Journey defines actor, goal, expected outcome, and ordered
+  observable Steps; every required Step maps to at least one Acceptance Item ID.
 - Cross-cutting constraints are represented as rows or explicit non-goals.
 - Requirement validity is checked against sources, assumptions, and owner decisions.
 - Assumptions, non-goals, and risk areas are explicit.
@@ -66,9 +93,15 @@ Before collecting formal review batches:
 
 Before coding:
 
-- Every task lists covered requirement IDs.
+- Every host task, story, phase, or increment lists the applicable
+  `requirement_ids`, `acceptance_item_ids`, `journey_ids`, and
+  `journey_step_ids`. Journey lists may be empty only when applicability does
+  not require them.
 - Every requirement has at least one task, explicit deferral, or rejection.
-- Every acceptance criterion has a verification method.
+- Every Acceptance Item has at least one host work mapping, explicit deferral,
+  or valid rejection and a concrete verification method.
+- Required Journey Steps have host work mappings and planned path/outcome
+  evidence; component or foundation checks are not path evidence by default.
 - Verification commands are concrete enough to run.
 - The plan does not add untraced scope.
 - Optional enhancements require accepted scope amendments before implementation.
@@ -77,20 +110,34 @@ Before coding:
 
 After each implementation slice:
 
-- Update affected requirement statuses.
-- Attach evidence for newly verified items.
+- Update affected Acceptance Item, Requirement, and Journey statuses without
+  auto-promoting parents.
+- Attach item evidence to canonical Acceptance Item IDs and path evidence to
+  Journey IDs and covered Step IDs.
 - Check evidence quality before marking `verified`.
 - Record deviations in the gap ledger.
+- Propagate Item gaps to their parent Requirement and dependent Journeys. Keep a
+  Journey-only path gap from falsely downgrading otherwise valid Requirement
+  evidence.
 - Review requirement coverage before code quality.
 
 ## Evidence Quality Gate
 
 Before accepting evidence:
 
-- Evidence proves the exact acceptance criterion, not only adjacent behavior.
+- Every evidence record names or is structurally attached to its target.
+- Item evidence proves the exact Acceptance Item criterion, not only adjacent
+  behavior.
+- Path evidence proves required Step order and connection plus the Journey's
+  expected outcome; local component presence is insufficient.
+- A single artifact may support both axes only when each target and `proves`
+  claim is recorded separately.
 - Named edge cases and negative cases are covered or logged as gaps.
 - Evidence is fresh, reproducible, and tied to a normal gate, or has an explicit manual record.
-- Weak evidence keeps the requirement `implemented`; missing proof becomes an `evidence-gap`.
+- Weak item evidence keeps the Item and parent Requirement below `verified` and
+  prevents dependent Journeys from being `verified`.
+- All Items being `verified` does not verify a Journey when path evidence is
+  absent; keep the Journey `implemented` and record an `evidence-gap`.
 
 ## Review Finding Intake Gate
 
@@ -163,12 +210,27 @@ Before expanding scope:
 Before saying complete:
 
 - Re-read the latest requirements, plan, and gap ledger.
-- Verify every `verified` row has fresh evidence.
+- Verify every active required Acceptance Item has a valid disposition and every
+  `verified` Item has fresh, target-specific evidence.
+- Enforce status consistency: all active required Items must be `verified`
+  before their Requirement can be `verified`; deferred, blocked, and rejected
+  Items require the corresponding parent decision.
+- Confirm the Journey applicability decision and rationale.
+- For every applicable Journey, verify Step-to-Item mappings, referenced Item
+  status, strong path evidence, expected outcome proof, recovery coverage, and
+  Journey/Step gaps before allowing `verified`.
 - Confirm review findings and scope amendments have decisions.
 - If review governance is required, confirm the epoch is closed or has a
   controlled reopen, deferral, block, or residual-risk decision.
-- Confirm all remaining rows are `deferred`, `blocked`, or `rejected`.
-- Produce a closure packet.
+- Treat review closure as a sub-gate: missing path evidence discovered after
+  freeze fails delivery closure but does not automatically reopen review. Use
+  `evidence_invalidated` only when previously accepted evidence became invalid.
+- Confirm all remaining Requirements, Acceptance Items, and Journeys are
+  `deferred`, `blocked`, or `rejected` with owner and rationale where required.
+- Produce a closure packet with separate Requirement, Acceptance Item, Journey,
+  gap, review, amendment, verification-run, and residual-risk dispositions.
+- Call delivery `complete` only when every required Requirement and every
+  applicable Journey is `verified`.
 - Do not start the next phase until leftover work becomes next-phase scope, entry criteria, or explicit exclusion.
 
 ## Reviewer Prompt Add-On
@@ -178,9 +240,16 @@ Add this block to spec or delivery reviews:
 ```text
 Check the RVTF trace matrix. For each requirement ID:
 - Is the requirement represented by implementation work?
-- Is the acceptance criterion satisfied by evidence, not by claims?
+- Does every canonical Acceptance Item have a stable ID and source reference?
+- Is each Acceptance Item satisfied by target-specific evidence, not by claims?
 - Are extra behaviors traced to an approved requirement?
 - Are missing or partial behaviors recorded in the gap ledger?
+
+For Journey applicability and each required Journey:
+- Does the decision follow actor-goal-path triggers rather than a technical label?
+- Does every required Step reference canonical Acceptance Item IDs without copying state?
+- Does path evidence prove Step order, connection, and expected outcome?
+- Are Item gaps and Journey-only path gaps propagated to the correct targets?
 
 For each review finding:
 - Is it classified before implementation?
@@ -193,7 +262,7 @@ For governed review:
 - Are no-finding dimensions recorded as covered rather than omitted?
 - Are late findings classified with a reopen, defer, reject, block, or amendment decision?
 
-Report missing requirements, weak evidence, unverified implemented work,
-untraced extra scope, unapproved amendments, and gaps without owner or close
-condition.
+Report missing Requirements or Acceptance Items, weak item or path evidence,
+unverified implemented work, invalid Journey applicability, untraced extra
+scope, unapproved amendments, and gaps without owner or close condition.
 ```
