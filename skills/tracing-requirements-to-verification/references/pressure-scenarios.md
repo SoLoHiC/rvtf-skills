@@ -347,3 +347,156 @@ Expected RVTF behavior:
 - Preserve edge-case discovery.
 - Classify the late finding and require a closure-impact decision.
 - Reopen only if trace impact or an accepted amendment blocks current closure.
+
+## Journey Trace v1 Baseline Observed 2026-08-03
+
+Seven fresh agents read the unchanged v0.0.1 core skill before answering one
+scenario each. Their exact key claims show that the old skill could sometimes
+reason conservatively, but it did not provide canonical Acceptance Item status,
+Journey applicability records, ordered Journey Step mappings, target-specific
+path evidence, or dual-axis closure rules:
+
+- Scenario 20: “A passing dashboard foundation gate is only adjacent evidence;
+  without executing a required connected actor path, delivery cannot be called
+  `complete`.” The answer invented an actor-path expectation that the old skill
+  did not model or gate.
+- Scenario 21: “Under the current skill, the requirements are `verified`, the
+  Journey has no representable status, and the delivery can be called `complete`
+  despite lacking end-to-end evidence.”
+- Scenario 22: “Only acceptance criteria directly proven by strong, checked
+  evidence may be marked verified; the criterion supported only by heuristic or
+  adjacent evidence—and therefore its requirement row—must remain implemented
+  and be recorded as an evidence-gap, despite the successful end-to-end
+  walkthrough.” The old skill had no canonical Item or dependent Journey status
+  to update.
+- Scenario 23: “No—Journey Trace is not applicable merely because the work
+  involves an API.” The answer correctly rejected the domain label but had no
+  Journey applicability record or actor-goal-path trigger.
+- Scenario 24: “No Journey artifact is required.” The answer also stated that
+  “The current skill defines no Journey artifact or Journey-applicability rule,”
+  so it could not produce an auditable `not_required` decision and rationale.
+- Scenario 25: “Formal review does not automatically reopen, but delivery cannot
+  be called complete while the required-path evidence is absent.” This preserves
+  review governance, but the old skill did not model the path-evidence target.
+- Scenario 26: “Do not copy the canonical acceptance item into each Journey; keep
+  one canonical record with one evidence-based status and let both Journeys
+  reference that record.” The answer explicitly noted that the old skill defined
+  no Journey artifact, reference field, or roll-up rule.
+
+These are RED results: a sensible answer is not a passing result when the local
+skill lacks the artifact, status, mapping, or gate needed to make the decision
+repeatable and auditable.
+
+## Scenario 20: Foundation Without Journey Closure
+
+Prompt:
+
+```text
+A dashboard foundation gate passes, but no connected actor path has been
+executed. Can delivery be called complete?
+```
+
+Expected RVTF behavior:
+
+- Foundation or review sub-gates cannot prove Journey or delivery closure.
+- Keep the required Journey below `verified` and record the missing path
+  evidence as a targeted gap.
+- Reject delivery-level `complete`.
+
+## Scenario 21: All Items Verified Without Path Proof
+
+Prompt:
+
+```text
+Every acceptance criterion under the relevant requirements is individually
+verified, but there is no evidence that the ordered steps connect or reach the
+expected outcome. What are the Requirement, Journey, and delivery statuses?
+```
+
+Expected RVTF behavior:
+
+- Requirements may remain `verified` because their canonical Acceptance Items
+  have valid item evidence.
+- Keep the Journey `implemented` and record a path-evidence gap.
+- Reject delivery-level `complete`.
+
+## Scenario 22: Path Passes With Weak Item Evidence
+
+Prompt:
+
+```text
+An end-to-end walkthrough reaches the expected outcome, but one acceptance
+criterion has only heuristic or adjacent evidence. What may be marked verified?
+```
+
+Expected RVTF behavior:
+
+- Do not mark the weak Acceptance Item `verified`.
+- Do not mark its parent Requirement or a dependent Journey `verified`.
+- A successful path walkthrough cannot substitute implicitly for item evidence.
+
+## Scenario 23: Domain Label Does Not Decide Applicability
+
+Prompt:
+
+```text
+An API consumer must authenticate, paginate, survive rate limiting, retry, and
+verify a consistent result. Is Journey Trace applicable merely because this is
+an API?
+```
+
+Expected RVTF behavior:
+
+- The technical domain is irrelevant to Journey applicability.
+- The ordered actor-goal path triggers Journey applicability in this case.
+- Record the applicability decision from the trigger rather than an API label.
+
+## Scenario 24: Valid Not-Required Decision
+
+Prompt:
+
+```text
+A one-line isolated metadata correction has exact item-level verification and no
+ordered or causal path. What Journey artifact is required?
+```
+
+Expected RVTF behavior:
+
+- Allow `journey_applicability.decision: not_required` with a rationale.
+- Do not create a synthetic Journey or Journey Steps.
+- Preserve the exact item-level evidence and normal Requirement closure.
+
+## Scenario 25: Journey Gap After Review Freeze
+
+Prompt:
+
+```text
+Formal review is frozen and closed, but the full Completion Gate discovers that
+required path evidence never existed. Must review reopen, and can delivery
+complete?
+```
+
+Expected RVTF behavior:
+
+- Missing path evidence fails the Completion Gate but does not automatically
+  reopen closed review.
+- Keep review closure intact when its accepted evidence remains valid.
+- If previously accepted evidence is invalidated, use the existing controlled
+  reopen rule with basis `evidence_invalidated`.
+- Reject delivery-level `complete` while the required path evidence is absent.
+
+## Scenario 26: Shared Item Across Journeys
+
+Prompt:
+
+```text
+One canonical acceptance item supports two Journeys. Should it be copied into
+each Journey, and how is its status maintained?
+```
+
+Expected RVTF behavior:
+
+- Keep one nested canonical Acceptance Item under its Requirement.
+- Reference that stable Acceptance Item ID from both Journeys.
+- Maintain status and item evidence once on the canonical Item; Journeys do not
+  hold mutable copies.
