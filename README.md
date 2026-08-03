@@ -15,8 +15,16 @@ English | [中文](./README-CN.md)
 RVTF turns delivery work into a traceable decision ledger:
 
 - Requirements become stable IDs, not loose bullets.
-- Acceptance criteria are linked to verification methods.
-- Implementation tasks are mapped back to requirement IDs.
+- Each acceptance criterion becomes one canonical nested Acceptance Item with a
+  stable ID, verification method, status, item evidence, and gap references.
+- Journey applicability follows actor-goal-path triggers, not technical-domain
+  labels. An isolated change with exact item evidence may record
+  `not_required` instead of creating a synthetic Journey.
+- When applicable, Journey Trace records the actor, goal, expected outcome,
+  ordered observable Steps, canonical Acceptance Item references, and path
+  evidence.
+- Implementation tasks map to Requirement, Acceptance Item, Journey, and Journey
+  Step IDs while their host workflow keeps control of task grouping and roles.
 - `implemented` and `verified` stay separate.
 - Weak evidence becomes an evidence gap, not a passing claim.
 - Review findings are classified before they become work.
@@ -25,7 +33,10 @@ RVTF turns delivery work into a traceable decision ledger:
   controlled reopens.
 - New required work enters through a scope amendment decision.
 - Cross-cutting constraints such as security, privacy, data integrity, compatibility, migrations, and regression risk are tracked explicitly.
-- Completion is stated through a closure packet with verified rows, deferred gaps, blocked work, rejected extras, accepted amendments, and residual risk.
+- Completion is stated through a closure packet with separate Requirement,
+  Acceptance Item, and Journey dispositions. `complete` requires every required
+  Requirement and every applicable Journey to be verified; all Items being
+  verified does not replace path evidence.
 
 The core rule:
 
@@ -59,7 +70,7 @@ RVTF can be light or strict depending on risk:
 | --- | --- |
 | `discovery` | Exploring or prototyping without a completion claim. |
 | `lite` | Small bounded changes with low risk. |
-| `standard` | Multi-step delivery, phase work, review, or handoff. Requires a review-applicability decision. |
+| `standard` | Multi-step delivery, phase work, review, or handoff. Requires Journey and review applicability decisions. |
 | `strict` | Security, privacy, migrations, compatibility, money, production risk, or cross-agent execution. Requires bounded review governance and independent review evidence for the affected risk scope. |
 
 Do not lower the mode to justify an unsupported completion claim.
@@ -68,14 +79,15 @@ Do not lower the mode to justify an unsupported completion claim.
 
 | Skill | Purpose |
 | --- | --- |
-| `tracing-requirements-to-verification` | Core RVTF method: requirement IDs, acceptance criteria, verification, evidence quality, bounded review governance, review intake, gap ledger, scope amendments, and closure packets. |
+| `tracing-requirements-to-verification` | Core RVTF method: Requirement Trace, canonical Acceptance Items, Journey Trace, item/path evidence, bounded review governance, gap ledger, scope amendments, and dual-axis closure. |
 | `adapting-rvtf-to-superpowers` | Adds RVTF traceability to Superpowers workflows such as brainstorming, writing plans, code review, verification, branch finishing, and skill writing. |
 | `adapting-rvtf-to-agent-skills` | Adds RVTF to agent-skill planning, incremental implementation, doubt handling, code review, and definition-of-done practices. |
 | `adapting-rvtf-to-gsd` | Connects RVTF to GSD goal convergence, phase validation, ship decisions, and gap-control workflows. |
 | `adapting-rvtf-to-bmad` | Connects RVTF to BMAD specs, memlogs, adversarial review, edge-case review, verification-gap review, and preservation checks. |
 
-The adapter skills do not replace their host methods. They add a requirement and
-evidence thread through those existing workflows.
+The adapter skills do not replace their host methods. They map native tasks,
+stories, phases, or increments to RVTF IDs and feed back item evidence, path
+evidence, and gaps while preserving each host lifecycle.
 
 ## What RVTF Is Not
 

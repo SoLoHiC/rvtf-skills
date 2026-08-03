@@ -11,8 +11,15 @@ Requirements-to-Verification Traceability Framework (RVTF，需求到验证的�
 RVTF 将交付过程整理成一份可追溯的决策账本：
 
 - 将需求转成稳定 ID，而不是松散的条目。
-- 将验收标准绑定到验证方法。
-- 将实现任务映射回需求 ID。
+- 将每条验收标准建模为唯一的嵌套 canonical Acceptance Item，并记录稳定 ID、验证
+  方法、状态、item evidence 和 gap 引用。
+- Journey applicability 由 actor-goal-path trigger 决定，而不是由技术领域标签决定；
+  对没有有序或因果路径、且 item evidence 已精确证明结果的孤立改动，可以记录
+  `not_required`，不创建伪造 Journey。
+- Journey Trace 在适用时记录 actor、goal、expected outcome、有序可观察 Steps、
+  canonical Acceptance Item 引用和 path evidence。
+- 实现任务映射 Requirement、Acceptance Item、Journey 和 Journey Step ID，但 task
+  grouping 与角色安排仍由宿主工作流决定。
 - 明确区分 `implemented` 和 `verified`。
 - 将弱证据记录为 evidence gap，而不是直接当作通过。
 - 评审发现必须先分类，再决定是否进入实现。
@@ -21,7 +28,9 @@ RVTF 将交付过程整理成一份可追溯的决策账本：
   controlled reopen 来限定评审生命周期。
 - 新增的必要工作必须经过 scope amendment 决策。
 - 安全、隐私、数据完整性、兼容性、迁移、回归风险等跨切约束需要显式追踪。
-- 完成声明需要 closure packet，列出已验证项、延期 gap、阻塞项、拒绝的额外范围、接受的 scope amendment 和残余风险。
+- 完成声明需要 closure packet，分别列出 Requirement、Acceptance Item 和 Journey
+  disposition。只有所有 required Requirement 和 applicable Journey 都已验证时才能
+  声明 `complete`；所有 Item 已验证不能替代 path evidence。
 
 核心规则：
 
@@ -55,7 +64,7 @@ RVTF 可以根据风险轻重选择不同深度：
 | --- | --- |
 | `discovery` | 探索或原型阶段，暂不声明完成。 |
 | `lite` | 范围小、风险低的改动。 |
-| `standard` | 多步骤交付、阶段工作、评审或交接。需要 review applicability 决策。 |
+| `standard` | 多步骤交付、阶段工作、评审或交接。需要 Journey 与 review applicability 决策。 |
 | `strict` | 安全、隐私、迁移、兼容性、资金、生产风险或跨 agent 执行。受影响风险范围需要 bounded review governance 和独立评审证据。 |
 
 不能为了支持“已完成”的声明而降低模式。如果 review 发现高风险问题，至少应对该问题使用更严格的处理方式。
@@ -64,13 +73,15 @@ RVTF 可以根据风险轻重选择不同深度：
 
 | Skill | 作用 |
 | --- | --- |
-| `tracing-requirements-to-verification` | RVTF 核心方法：需求 ID、验收标准、验证、证据质量、bounded review governance、review intake、gap ledger、scope amendment 和 closure packet。 |
+| `tracing-requirements-to-verification` | RVTF 核心方法：Requirement Trace、canonical Acceptance Item、Journey Trace、item/path evidence、bounded review governance、gap ledger、scope amendment 和双轴 closure。 |
 | `adapting-rvtf-to-superpowers` | 将 RVTF 接入 Superpowers 的 brainstorming、writing plans、code review、verification、branch finishing 和 skill writing 流程。 |
 | `adapting-rvtf-to-agent-skills` | 将 RVTF 接入 agent-skill planning、增量实现、doubt handling、code review 和 definition-of-done。 |
 | `adapting-rvtf-to-gsd` | 将 RVTF 接入 GSD 的目标收敛、阶段验证、ship 决策和 gap control。 |
 | `adapting-rvtf-to-bmad` | 将 RVTF 接入 BMAD 的 spec、memlog、adversarial review、edge-case review、verification-gap review 和 preservation check。 |
 
-这些 adapter skills 不替代原有方法论。它们的作用是在既有流程中增加需求与证据追踪线。
+这些 adapter skills 不替代原有方法论。它们将宿主的 task、story、phase 或 increment
+映射到 RVTF ID，并回写 item evidence、path evidence 和 gap，同时保留宿主自己的生命
+周期。
 
 ## RVTF 不是什么
 
