@@ -153,6 +153,7 @@ journeys:
         observable_outcome: The runner loads the declared sealed inputs for all replay modes.
         acceptance_item_ids:
           - P16-REPLAY-001-AI-001
+          - P16-TENANT-001-AI-001
       - id: J-P16-REPLAY-001-S2
         observable_outcome: The runner rejects any attempt to read mutable live state.
         acceptance_item_ids:
@@ -197,6 +198,16 @@ host_trace_mappings:
     journey_step_ids:
       - J-P16-REPLAY-001-S1
       - J-P16-REPLAY-001-S2
+  - host_kind: task
+    host_ref: Task 4
+    requirement_ids:
+      - P16-TENANT-001
+    acceptance_item_ids:
+      - P16-TENANT-001-AI-001
+    journey_ids:
+      - J-P16-REPLAY-001
+    journey_step_ids:
+      - J-P16-REPLAY-001-S1
 ```
 
 `requirements[].acceptance[]` is the only canonical Acceptance Item store. IDs
@@ -294,15 +305,16 @@ review_contract:
       applicability: required
       requirements: [P16-REPLAY-001]
     - id: concurrency-and-recovery
-      applicability: not_applicable
-      rationale: No asynchronous work, retry path, or multi-writer behavior.
+      applicability: required
+      requirements: [P16-RECOVERY-001]
+      rationale: Interrupted replay recovery is part of the delivery scope.
   expected_batches:
     - id: requirements-review
       host_kind: requirement-coverage-review
       dimensions: [requirement-fidelity, impact-and-ownership]
     - id: closure-risk-review
       host_kind: verification-gap-review
-      dimensions: [verification-and-closure]
+      dimensions: [verification-and-closure, concurrency-and-recovery]
   exclusions:
     - Performance optimization is outside current acceptance criteria.
 
@@ -406,6 +418,12 @@ amendment.
 
 ## Closure Packet
 
+Version 0.3 keeps the v0.2 flat `verified`, `deferred`, `blocked`, and
+`rejected` fields as a derived compatibility summary. The typed Requirement,
+Acceptance Item, Journey, and gap sections are additive detail. Generate both
+from canonical trace objects and gap decisions; do not update either summary
+independently.
+
 ```yaml
 closure:
   scope: P1.6
@@ -414,6 +432,13 @@ closure:
     epoch: RE-P16-001
     status: closed
     remaining_late_findings: []
+  verified:
+    - P16-REPLAY-001
+    - P16-TENANT-001
+  deferred:
+    - GAP-P16-001
+  blocked: []
+  rejected: []
   requirements:
     verified:
       - P16-REPLAY-001
