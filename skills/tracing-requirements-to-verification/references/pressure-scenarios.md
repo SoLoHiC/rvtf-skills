@@ -1425,3 +1425,123 @@ Expected RVTF behavior:
 - Treat GO as closure of `ship_readiness` only.
 - Do not promote `deployed`, `post_launch_verified`, or the release Goal without
   their own target-specific evidence and closure decisions.
+
+## Operational Economy Candidate Forward Tests 2026-08-05
+
+These receipts record the completed behavioral evaluation at the candidate
+revision below. Version metadata is evaluation-point evidence, not a claim about
+the repository after later documentation or version work.
+
+```yaml
+evaluation_subject:
+  skill_repo_revision: 5294d96ed5f9f57b6e1ba0ba52f58797d64e5cc7
+  schema_package_candidate_metadata: 0.3.0
+  version_bump_status: intentionally_not_done_at_evaluation_point
+evaluation_date: 2026-08-05
+evaluator_isolation:
+  evaluator_kind: fresh_read_only_agents
+  excluded_context:
+    - design_document
+    - implementation_plan
+    - pressure_scenarios_file
+    - other_evaluator_outputs
+  writes: none
+observed_behavior_kind: concise_paraphrase
+```
+
+### Scenario Forward Receipts 27-45
+
+| Scenario | Prompt reference | Decisive observed behavior | Expected behavior reference | Result | Failure classification | Remediation revision |
+| --- | --- | --- | --- | --- | --- | --- |
+| 27 | `scenario:27:prompt` | Reused one artifact for 95 target-specific claims and did not promote all Items from a blanket pass. | `scenario:27:expected-rvtf-behavior` | PASS | none | none |
+| 28 | `scenario:28:prompt` | Assessed target, verifier, dependency, environment, and freshness across revisions while preserving the current host fresh gate. | `scenario:28:expected-rvtf-behavior` | PASS | none | none |
+| 29 | `scenario:29:prompt` | Invalidated only the five affected claims, propagated impact only to their dependents, and selected a targeted rerun. | `scenario:29:expected-rvtf-behavior` | PASS | none | none |
+| 30 | `scenario:30:prompt` | Treated the verifier revision as proof-basis drift, invalidated old affected proof, and required the applicable gate again. | `scenario:30:expected-rvtf-behavior` | PASS | none | none |
+| 31 | `scenario:31:prompt` | Completed the Unit semantically without running parent integration or full-suite gates early, subject to any stronger host floor. | `scenario:31:expected-rvtf-behavior` | PASS | none | none |
+| 32 | `scenario:32:prompt` | Preserved the required-suite failure, rejected accidental-green retries, isolated the target impact, and retained the required gate or escalation. | `scenario:32:expected-rvtf-behavior` | PASS | none | none |
+| 33 | `scenario:33:prompt` | Closed the Unit, kept the Goal incomplete, and recorded continuation without scheduling or invoking the next workflow. | `scenario:33:expected-rvtf-behavior` | PASS | none | none |
+| 34 | `scenario:34:prompt` | Recorded blocked remaining scopes, owners, and entry conditions and kept host archive or override status separate from RVTF disposition. | `scenario:34:expected-rvtf-behavior` | PASS | none | none |
+| 35 | `scenario:35:prompt` | Kept future parent review `pending_at_parent`; only an exact-revision receipt could later establish explicit `covered_at_parent` coverage. | `scenario:35:expected-rvtf-behavior` | PASS | none | none |
+| 36 | `scenario:36:prompt` | Allowed one coverage-complete standard-risk batch and kept dimensions explicit without turning dimension count into reviewer count. | `scenario:36:expected-rvtf-behavior` | PASS | none | none |
+| 37 | `scenario:37:prompt` | Preserved separate specialist or strict review whenever expertise, segregation of duties, risk, or host policy required it. | `scenario:37:expected-rvtf-behavior` | PASS | none | none |
+| 38 | `scenario:38:prompt` | Kept the old batch immutable and used an impact-assessed carry-forward plus bounded delta review for the changed surface. | `scenario:38:expected-rvtf-behavior` | PASS | none | none |
+| 39 | `scenario:39:prompt` | Invalidated only the Journey path, preserved valid Items and Requirements, and did not reopen closed review automatically. | `scenario:39:expected-rvtf-behavior` | PASS | none | none |
+| 40 | `scenario:40:prompt` | Mapped the pinned Superpowers workflow to one combined task batch with two verdicts plus one final branch batch, without an extra task reviewer. | `scenario:40:expected-rvtf-behavior` | PASS | none | none |
+| 41 | `scenario:41:prompt` | Emitted a no-progress warning and required new scope, repeat justification, or an explicit blocker instead of automatically repeating work. | `scenario:41:expected-rvtf-behavior` | PASS | none | none |
+| 42 | `scenario:42:prompt` | Kept the old claim valid where applicable but did not use it to skip the current host gate or claim current tests passed. | `scenario:42:expected-rvtf-behavior` | PASS | none | none |
+| 43 | `scenario:43:prompt` | Kept GSD containment separate from Wave grouping, treated BMAD Build as an execution record rather than scope, and inferred no parent closure. | `scenario:43:expected-rvtf-behavior` | PASS | none | none |
+| 44 | `scenario:44:prompt` | Mapped GSD to durable `.planning`, Superpowers to persisted continuation, ordinary Agent Skills `/build` to stop, and BMAD to its orchestrator boundary without scheduling work. | `scenario:44:expected-rvtf-behavior` | PASS | none | none |
+| 45 | `scenario:45:prompt` | Preserved three Agent Skills `/ship` specialists, synthesis, and rollback planning, and closed only `ship_readiness` on GO. | `scenario:45:expected-rvtf-behavior` | PASS | none | none |
+
+### Regression Receipts 1-26
+
+| Scenario | Prompt reference | Decisive observed behavior | Expected behavior reference | Result | Failure classification | Remediation revision |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `scenario:1:prompt` | Rejected completion from passing tests alone and required trace review plus the Completion Gate. | `scenario:1:expected-rvtf-behavior` | PASS | none | none |
+| 2 | `scenario:2:prompt` | Kept stable requirement and acceptance identifiers, concrete verification, and compact host-native tasks without copying canonical state. | `scenario:2:expected-rvtf-behavior` | PASS | none | none |
+| 3 | `scenario:3:prompt` | Preserved the host method while overlaying trace mappings, evidence, gaps, and closure decisions. | `scenario:3:expected-rvtf-behavior` | PASS | none | none |
+| 4 | `scenario:4:prompt` | Classified required gaps, cross-cutting constraints, and optional enhancements before authorizing work. | `scenario:4:expected-rvtf-behavior` | PASS | none | none |
+| 5 | `scenario:5:prompt` | Removed unsupported verified status, kept the target implemented, and opened an evidence gap tied to the normal gate. | `scenario:5:expected-rvtf-behavior` | PASS | none | none |
+| 6 | `scenario:6:prompt` | Treated tenant isolation as a strict cross-cutting constraint and blocked unsupported completion. | `scenario:6:expected-rvtf-behavior` | PASS | none | none |
+| 7 | `scenario:7:prompt` | Accepted the blocker but kept the batch and epoch open until every contracted dimension was covered. | `scenario:7:expected-rvtf-behavior` | PASS | none | none |
+| 8 | `scenario:8:prompt` | Deferred or rejected the late optional enhancement without automatic review reopen. | `scenario:8:expected-rvtf-behavior` | PASS | none | none |
+| 9 | `scenario:9:prompt` | Reopened for the late existing acceptance failure on `required_gap`, independent of its severity label. | `scenario:9:expected-rvtf-behavior` | PASS | none | none |
+| 10 | `scenario:10:prompt` | Reopened the concrete authorization and data-integrity concern on `cross_cutting_risk` with an owner decision. | `scenario:10:expected-rvtf-behavior` | PASS | none | none |
+| 11 | `scenario:11:prompt` | Rejected freeze across revision drift and invalidated a freeze when remediation changed its subject. | `scenario:11:expected-rvtf-behavior` | PASS | none | none |
+| 12 | `scenario:12:prompt` | Invalidated affected evidence and reopened the direct remediation regression only. | `scenario:12:expected-rvtf-behavior` | PASS | none | none |
+| 13 | `scenario:13:prompt` | Recorded formal review as `not_required` with rationale and created no synthetic review artifacts. | `scenario:13:expected-rvtf-behavior` | PASS | none | none |
+| 14 | `scenario:14:prompt` | Rejected strict self-approval and required independent review evidence. | `scenario:14:expected-rvtf-behavior` | PASS | none | none |
+| 15 | `scenario:15:prompt` | Treated review closure as a sub-gate and kept delivery incomplete while Requirement evidence was weak. | `scenario:15:expected-rvtf-behavior` | PASS | none | none |
+| 16 | `scenario:16:prompt` | Preserved two batches when a host actually runs two separate reviews. The pinned current Superpowers default is intentionally superseded, not regressed: Scenario 40 verifies one combined task batch with two verdicts plus a final branch batch. | `scenario:16:expected-rvtf-behavior`; `scenario:40:expected-rvtf-behavior` | PASS | none | none |
+| 17 | `scenario:17:prompt` | Scoped Agent Skills review governance to the increment instead of the whole release. | `scenario:17:expected-rvtf-behavior` | PASS | none | none |
+| 18 | `scenario:18:prompt` | Preserved GSD goal-backward validation and refused shipping from review closure alone. | `scenario:18:expected-rvtf-behavior` | PASS | none | none |
+| 19 | `scenario:19:prompt` | Preserved BMAD edge-case discovery and reopened only for trace impact or an accepted blocking amendment. | `scenario:19:expected-rvtf-behavior` | PASS | none | none |
+| 20 | `scenario:20:prompt` | Kept the Journey implemented and delivery incomplete when foundation evidence lacked connected path and outcome proof. | `scenario:20:expected-rvtf-behavior` | PASS | none | none |
+| 21 | `scenario:21:prompt` | Preserved verified Items and Requirements but withheld Journey and delivery closure without path evidence. | `scenario:21:expected-rvtf-behavior` | PASS | none | none |
+| 22 | `scenario:22:prompt` | Refused to substitute a passing walkthrough for weak Item evidence and propagated the evidence gap to dependents. | `scenario:22:expected-rvtf-behavior` | PASS | none | none |
+| 23 | `scenario:23:prompt` | Chose Journey applicability from the ordered actor-goal path and recovery semantics, not the API domain label. | `scenario:23:expected-rvtf-behavior` | PASS | none | none |
+| 24 | `scenario:24:prompt` | Recorded an auditable `not_required` decision, created no synthetic Journey, and retained exact Item evidence. | `scenario:24:expected-rvtf-behavior` | PASS | none | none |
+| 25 | `scenario:25:prompt` | Failed the delivery gate for missing Journey path evidence while keeping valid review closure unless accepted evidence was invalidated. | `scenario:25:expected-rvtf-behavior` | PASS | none | none |
+| 26 | `scenario:26:prompt` | Stored one canonical shared Item, referenced it from both Journeys, and required separate path and outcome proof for each Journey. | `scenario:26:expected-rvtf-behavior` | PASS | none | none |
+
+### Adapter Forward-Test Receipts
+
+| Adapter and exact host pin | Prompt / expected behavior reference | Decisive observed behavior | Result | Failure classification | Remediation revision |
+| --- | --- | --- | --- | --- | --- |
+| Superpowers `main@44c9b2d6e889982ac18c27d05a19fefe335194e1` | Prompts: `scenario:40:prompt`, `scenario:42:prompt`, `scenario:44:prompt`; expected: `scenario:40:expected-rvtf-behavior`, `scenario:42:expected-rvtf-behavior`, `scenario:44:expected-rvtf-behavior` | Mapped two-task SDD to Task Units, one combined review per task, a final branch review, and fresh gates; continued between tasks and persisted higher-Goal continuation before ledger deletion. | PASS | none | none |
+| Agent Skills `main@7829ffd90d973b6325f5f12f1b1226dcace74443` | Prompts: `scenario:42:prompt`, `scenario:44:prompt`, `scenario:45:prompt`; expected: `scenario:42:expected-rvtf-behavior`, `scenario:44:expected-rvtf-behavior`, `scenario:45:expected-rvtf-behavior` | Kept a thin Task Unit; distinguished focused worker evidence from full suite plus build and E2E; stopped ordinary `/build`, required `/review`, and preserved `/ship` three-specialist and GO boundaries. | PASS | none | none |
+| GSD `next@b5ce72f72992e46b31c2b02c8275cdd858a8fdce` | Prompts: `scenario:39:prompt`, `scenario:42:prompt`, `scenario:43:prompt`, `scenario:44:prompt`; expected: `scenario:39:expected-rvtf-behavior`, `scenario:42:expected-rvtf-behavior`, `scenario:43:expected-rvtf-behavior`, `scenario:44:expected-rvtf-behavior` | Mapped Milestone, Phase, PLAN, and Wave; preserved four verification tiers; let a Journey gap hold the Phase; kept execute review advisory, host status override separate, and `.planning` single-writer authority. | PASS | none | none |
+| BMAD `main@116491165d850e9d074554c6271f452363bb607a` | Prompts: `scenario:42:prompt`, `scenario:43:prompt`, `scenario:44:prompt`; expected: `scenario:42:expected-rvtf-behavior`, `scenario:43:expected-rvtf-behavior`, `scenario:44:expected-rvtf-behavior` | Supported Story-backed and direct-spec Units, attached the Build record, required per-invocation review, bounded one run, returned continuation to the orchestrator, and did not turn host done into parent closure. | PASS | none | none |
+
+### Evaluation Review Record
+
+```yaml
+evaluation_review:
+  subject_revision: 5294d96ed5f9f57b6e1ba0ba52f58797d64e5cc7
+  batches:
+    - id: core-forward-scenarios-27-45
+      dimensions:
+        - requirement-fidelity
+        - impact-and-ownership
+        - verification-and-closure
+        - state-and-compatibility
+    - id: regression-scenarios-1-26
+      dimensions:
+        - requirement-fidelity
+        - verification-and-closure
+        - state-and-compatibility
+    - id: pinned-adapter-forward-tests
+      dimensions:
+        - requirement-fidelity
+        - impact-and-ownership
+        - verification-and-closure
+        - state-and-compatibility
+  findings: []
+  finding_summary: none_from_these_behavioral_evaluations
+  limitations:
+    - simulated_fresh_agent_decisions_not_execution_inside_upstream_host_runtimes
+    - host_pins_are_static_contracts
+    - final_repository_and_package_review_pending_after_documentation_and_version_work
+  formal_whole_change_review_closure: not_claimed
+  final_implementation_complete: not_claimed
+```
