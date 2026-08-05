@@ -172,6 +172,63 @@ The contract defines expected impact and review surface before implementation.
 Impact surface categories may be empty with a rationale, but do not silently omit
 them when `impact-and-ownership` is active.
 
+### Review Cadence And Child Coverage
+
+Version 0.4 review contracts add explicit cadence and economy policy without
+changing the existing freeze, remediation, closure, or controlled-reopen
+authority:
+
+```yaml
+review_contract:
+  id: RC-P16-001
+  scope_ref: milestone:p1.6
+  cadence: milestone
+  child_scope_policy: covered_at_parent
+  covered_child_scope_refs:
+    - unit:p1.6-replay
+  batch_combination_policy: combined_allowed
+  host_native_required_batches:
+    - host:task-review
+  independence:
+    required: false
+```
+
+Cadence values are:
+
+- `unit`: each Unit has its own formal review boundary;
+- `batch`: a stable set of Units is reviewed together;
+- `milestone`: formal coverage is collected after Milestone convergence;
+- `host_native`: RVTF maps a mandatory host lifecycle without replacing it.
+
+With `child_scope_policy: covered_at_parent`, list every intended child in
+`covered_child_scope_refs`. Before the parent review actually runs, the child
+records `review_state: pending_at_parent`. This is an explicit future
+obligation, never proof, a passed review, or permission to close a Unit whose
+own contract requires formal review. After review closes on an exact revision,
+associate only child changes present in that revision.
+
+Parent coverage does not remove a host-native Unit, task, build, phase, merge,
+or ship review. Every entry in `host_native_required_batches` requires an actual
+batch receipt and must be accepted by review closure; a planned batch or future
+parent epoch is insufficient.
+
+### Combination, Separation, And Independence
+
+`batch_combination_policy` values are:
+
+- `combined_allowed`: one qualified batch may explicitly cover multiple
+  dimensions when the host permits it;
+- `separate_required`: expertise, segregation of duties, or governing policy
+  requires distinct batches;
+- `host_native`: preserve the host's actual reviewer roles and batch fan-out.
+
+Review dimensions never imply a one-to-one reviewer or batch count. Strict
+independence is a relationship-to-implementer requirement and is distinct from
+forced separate batches: one independent, qualified combined batch may satisfy
+several dimensions when no specialist or host constraint requires separation.
+Conversely, combination cannot erase specialist expertise, segregation, strict
+independence, or a host-native batch.
+
 ### Review Epoch
 
 ```yaml
@@ -271,6 +328,49 @@ Do not restart unrestricted review for each fix. Closure review checks known
 findings, changed evidence, and direct remediation risk. If unrelated work
 changes the reviewed subject, invalidate the freeze and amend or reopen the
 epoch.
+
+### Immutable Batches, Impact Assessment, And Carry-Forward
+
+A historical `review_batch` is immutable evidence: keep its original epoch and
+subject revision. Never relabel it with the remediation revision.
+
+When a later revision leaves accepted dimensions unchanged, record both the
+impact assessment and the applicability decision:
+
+```yaml
+review_impact_assessments:
+  - id: RIA-P16-001
+    source_batch_ref: RB-P16-SECURITY-001
+    from_revision: def456
+    to_revision: fed789
+    changed_surface: [performance-remediation]
+    unchanged_dimensions: [trust-security-and-privacy]
+    rationale: The authorization and data-boundary surface is unchanged.
+    assessor_ref: reviewer:security
+    decision: accepted
+
+review_coverage_carry_forward:
+  - id: RCF-P16-001
+    source_batch_ref: RB-P16-SECURITY-001
+    target_epoch: RE-P16-002
+    from_revision: def456
+    to_revision: fed789
+    unchanged_dimensions: [trust-security-and-privacy]
+    impact_assessment_ref: RIA-P16-001
+    assessor_ref: reviewer:security
+    decision: accepted
+```
+
+The source batch and impact assessment must resolve. `from_revision` equals the
+source batch's actual historical revision; `to_revision`, unchanged dimensions,
+assessor, rationale, and accepted decision agree with the impact assessment.
+Carry only dimensions the source batch actually covered.
+
+Run a bounded delta batch for changed dimensions and changed evidence. If impact
+cannot establish that a dimension is unchanged, create a new batch or use the
+existing controlled-reopen rules. Carry-forward narrows repeated coverage; it
+does not mutate freeze, weaken a finding, manufacture future evidence, or
+replace review closure and the full Completion Gate.
 
 ### Review Closure
 

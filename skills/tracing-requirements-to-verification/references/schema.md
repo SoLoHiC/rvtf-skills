@@ -1,5 +1,22 @@
 # RVTF Schema
 
+## Schema Version Compatibility Boundary
+
+Use `schema_version: "0.3.0"` for the legacy inline Requirement, Acceptance
+Item, Journey, review, gap, and closure representation below. It remains valid
+without economy-plane registries, cadence fields, or continuation records.
+
+Use `schema_version: "0.4.0"` when creating the additive delivery-scope,
+evidence-registry, verification-policy, review-cadence, or continuation records
+defined later in this reference. Version 0.4 does not move canonical Acceptance
+Items out of `requirements[].acceptance[]`, replace Journey path truth, or
+reinterpret host status as delivery disposition.
+
+A 0.4 artifact may be mixed: one target may keep legacy inline evidence while a
+different target uses `evidence_ref` and `evidence_claims`. Do not give one
+target both mutable inline and registry truth. The target-specific claim is the
+compatibility boundary, not the file containing the receipt.
+
 ## Requirement ID Style
 
 Use stable IDs that survive task reordering:
@@ -12,9 +29,10 @@ Examples: `AUTH-SESSION-001`, `CLI-RUN-003`, `DOCS-MIGRATION-002`.
 
 For phase-oriented work, prefix with the phase only when the requirement truly belongs to that phase: `P16-REPLAY-001`.
 
-## Trace Matrix
+## Legacy-Compatible 0.3 Inline Trace Matrix
 
 ```yaml
+schema_version: "0.3.0"
 scope:
   id: P1.6
   title: Offline skill optimization
@@ -510,3 +528,305 @@ closure:
 - `incomplete`: required work or evidence is missing.
 - `blocked`: external input or state prevents closure.
 - `invalid_requirements`: requirements must be corrected before implementation or verification can be trusted.
+
+## Additive 0.4 Delivery Scopes And Groups
+
+Delivery scopes own closure. Groups organize work orthogonally and never create
+parent-child closure propagation.
+
+```yaml
+schema_version: "0.4.0"
+
+delivery_scopes:
+  - scope_ref: goal:example
+    scope_kind: goal
+    host_kind: release-objective
+    host_ref: host-goal:opaque-reference
+    required_child_inventory_revision: sha256:goal-inventory-v2
+    required_child_scope_refs: [milestone:example]
+    disposition: incomplete
+
+  - scope_ref: milestone:example
+    scope_kind: milestone
+    host_kind: phase
+    parent_scope_ref: goal:example
+    required_for_parent: true
+    required_child_inventory_revision: sha256:milestone-inventory-v3
+    required_child_scope_refs: [unit:example, unit:example-next]
+    disposition: incomplete
+
+  - scope_ref: unit:example
+    scope_kind: unit
+    host_kind: task
+    parent_scope_ref: milestone:example
+    required_for_parent: true
+    host_status: done
+    disposition: complete
+    review_state: pending_at_parent
+
+  - scope_ref: unit:example-next
+    scope_kind: unit
+    host_kind: task
+    parent_scope_ref: milestone:example
+    required_for_parent: true
+    host_status: planned
+    disposition: incomplete
+
+delivery_groups:
+  - group_ref: execution-group:wave-1
+    group_kind: execution_batch
+    host_kind: wave
+    member_scope_refs: [unit:example]
+```
+
+`scope_kind` is exactly `goal`, `milestone`, or `unit`. `group_kind` is exactly
+`execution_batch`, `verification_batch`, or `review_batch`. Parent references
+must resolve and be acyclic. A parent's authoritative
+`required_child_scope_refs` inventory has a revision, agrees with each child's
+`required_for_parent`, and is the only path for closure aggregation.
+
+A closed parent may aggregate only required children with `complete`,
+`complete_with_deferred_gaps`, or `complete_with_residual_risk`. Removing a
+child requires an accepted scope amendment and an updated inventory; a stale
+`required_for_parent: true` is not enough. `host_status` records host lifecycle
+truth separately and cannot override a blocked or incomplete RVTF disposition.
+
+## Additive 0.4 Evidence Registry
+
+Artifacts are reusable receipts. Claims are target-specific proof statements.
+One passed artifact may support many claims, but every claim independently names
+an Acceptance Item or Journey and what the receipt proves.
+
+```yaml
+evidence_artifacts:
+  - id: EA-EXAMPLE-001
+    kind: test-receipt
+    locator: artifacts/example.json
+    generated_at: 2026-08-05T10:00:00Z
+    subject_revision: abc123
+    verifier_ref: test:example
+    verifier_revision: sha256:verifier-v1
+    dependency_fingerprint: sha256:inputs-v1
+    environment_fingerprint: python3.13-pyyaml6-linux
+    command_signature: python3 tests/example.py
+    result: passed
+
+evidence_claims:
+  - id: EC-EXAMPLE-ITEM-001
+    artifact_ref: EA-EXAMPLE-001
+    target_kind: acceptance_item
+    target_ref: EXAMPLE-001-AI-001
+    proves: The exact Item criterion is satisfied.
+    coverage: [item-contract]
+    normal_gate: true
+    validity:
+      status: valid
+      assessment_ref: EVA-EXAMPLE-ITEM-001
+      checked_against_revision: def456
+      invalidation_triggers:
+        - target_changed
+        - verifier_changed
+        - dependency_fingerprint_changed
+
+evidence_validity_assessments:
+  - id: EVA-EXAMPLE-ITEM-001
+    claim_ref: EC-EXAMPLE-ITEM-001
+    from_revision: abc123
+    checked_against_revision: def456
+    assessed_at: 2026-08-05T11:00:00Z
+    assessor_ref: host:affected-graph
+    policy_ref: verification-policy:example
+    basis:
+      target_revision_before: sha256:criterion-v1
+      target_revision_after: sha256:criterion-v1
+      verifier_revision_before: sha256:verifier-v1
+      verifier_revision_after: sha256:verifier-v1
+      dependency_fingerprint_before: sha256:inputs-v1
+      dependency_fingerprint_after: sha256:inputs-v1
+      environment_compatibility: compatible
+      freshness: within_policy
+      rationale: Only unrelated documentation changed.
+    decision: valid
+```
+
+The exact claim validity field is `evidence_claims[].validity.status`; allowed
+values are `valid`, `stale`, `invalidated`, and `unknown`. They are not
+Requirement statuses. A valid claim requires a passed artifact and an actual
+target of the declared kind. Item and Journey targets remain separate, and each
+inline `evidence_ref` must resolve to a claim for that exact target.
+
+When `subject_revision` and `checked_against_revision` differ, standard and
+strict reuse requires the referenced assessment shown above. It must match the
+claim and from/to revisions and explicitly compare the target, verifier,
+dependency basis, environment compatibility, and freshness. An opaque
+fingerprint alone is never a validity decision. Lite may instead use a concise
+`validity.reuse_basis` with `target`, `verifier`, `dependency`, `environment`,
+`freshness`, and `rationale`; without those surfaces use `unknown` and rerun.
+
+Invalidate only affected claims and their dependent Items or Journeys. A failed
+Journey path claim does not invalidate an unrelated Item claim merely because
+both share one artifact.
+
+## Claim Validity, Host Gates, And Current Test Status
+
+Claim reuse does not establish that current host tests or reviews ran. Preserve
+three separate facts:
+
+- claim applicability in `evidence_claims[].validity.status`;
+- required current-boundary execution in `closure_packet.host_gate_status`;
+- the fresh receipt's `current_test_status_claim`.
+
+```yaml
+host_gate_receipts:
+  - id: HGR-CURRENT-TREE-001
+    gate_ref: host:test-current-tree
+    lifecycle_boundary: task_completion
+    subject_revision: def456
+    executed_at: 2026-08-05T11:30:00Z
+    command_signature: python3 tests/example.py --current-tree
+    freshness: current_tree
+    status: passed
+    current_test_status_claim: passed
+```
+
+A closure may mark a required host gate `satisfied` only through a matching
+fresh receipt, gate reference, lifecycle boundary, freshness, and subject
+revision. A valid older claim cannot manufacture a current test-status claim.
+
+## Additive 0.4 Verification Policy
+
+```yaml
+verification_policy:
+  id: verification-policy:example
+  scope_ref: milestone:example
+  host_native_required_gates:
+    - gate_ref: host:test-current-tree
+      lifecycle_boundary: task_completion
+      freshness: current_tree
+  tiers:
+    worker:
+      trigger: affected_unit_change
+      command_refs: [test:targeted]
+    batch:
+      trigger: batch_ready_or_shared_dependency_change
+      command_refs: [test:affected]
+    milestone:
+      trigger: milestone_closure
+      command_refs: [test:integration]
+    completion:
+      trigger: goal_closure
+      command_refs: [trace:completion-audit, test:repository-full]
+  reuse_policy: reuse_valid_claims_then_run_missing_gates
+```
+
+The four tiers are `worker`, `batch`, `milestone`, and `completion`. Their
+effective gate set is always the union of applicable RVTF commands and
+`host_native_required_gates`; reuse cannot erase the host floor. Completion is
+a semantic audit, not an instruction to run every repository suite at every
+Unit. A host-declared fresh or full gate remains mandatory at its boundary.
+
+## Additive 0.4 Review Cadence And Carry-Forward
+
+```yaml
+review_contract:
+  id: RC-EXAMPLE-001
+  scope_ref: milestone:example
+  cadence: milestone
+  child_scope_policy: covered_at_parent
+  covered_child_scope_refs: [unit:example]
+  batch_combination_policy: combined_allowed
+  host_native_required_batches: [host:task-review]
+  independence:
+    required: false
+  dimensions:
+    baseline:
+      - requirement-fidelity
+      - impact-and-ownership
+      - verification-and-closure
+    triggered: []
+  expected_batches: []
+
+review_impact_assessments:
+  - id: RIA-EXAMPLE-001
+    source_batch_ref: RB-EXAMPLE-001
+    from_revision: abc123
+    to_revision: def456
+    changed_surface: [documentation-only]
+    unchanged_dimensions: [trust-security-and-privacy]
+    rationale: The reviewed security surface is unchanged.
+    assessor_ref: reviewer:security
+    decision: accepted
+
+review_coverage_carry_forward:
+  - id: RCF-EXAMPLE-001
+    source_batch_ref: RB-EXAMPLE-001
+    target_epoch: RE-EXAMPLE-002
+    from_revision: abc123
+    to_revision: def456
+    unchanged_dimensions: [trust-security-and-privacy]
+    impact_assessment_ref: RIA-EXAMPLE-001
+    assessor_ref: reviewer:security
+    decision: accepted
+```
+
+Cadence is `unit`, `batch`, `milestone`, or `host_native`. Child coverage is
+explicit; before the parent batch actually runs, record
+`review_state: pending_at_parent`, never future evidence. Batch combination is
+`combined_allowed`, `separate_required`, or `host_native`. Combination does not
+remove strict independence, specialist expertise, segregation requirements, or
+`host_native_required_batches`.
+
+Historical batches keep their original epoch and subject revision forever.
+Carry-forward is a new assessment linking from/to revisions; it agrees with an
+accepted impact assessment and carries only dimensions actually covered by the
+source batch. Changed dimensions receive a bounded delta batch. If unchanged
+impact cannot be established, create that batch or use controlled reopen.
+
+## Additive 0.4 Closure Continuation
+
+New 0.4 non-Goal closure packets include continuation. Version 0.3 `closure`
+records remain legacy-compatible without it.
+
+```yaml
+closure_packet:
+  scope_ref: unit:example
+  subject_revision: def456
+  disposition: complete
+  host_gate_status:
+    - gate_ref: host:test-current-tree
+      receipt_ref: HGR-CURRENT-TREE-001
+      status: satisfied
+      subject_revision: def456
+  continuation:
+    parent_scope_ref: milestone:example
+    parent_disposition: incomplete
+    continuation_mode: artifact_only
+    authority_ref: rvtf:goal-example
+    resume_locator: docs/delivery/example.yaml
+    remaining_scope_refs: [unit:example-next]
+    next_entry_conditions:
+      - Begin the next unblocked Unit after owner selection.
+    execution_action: stop
+    stop_basis: host_command_completed
+```
+
+`continuation_mode` is `durable_host`, `artifact_only`, or `advisory`.
+`durable_host` and `artifact_only` require an authority and locator; advisory
+identifies the user or external orchestrator that retains control.
+`execution_action` is `continue`, `stop`, `await_owner`, or `host_boundary`.
+Use `stop_basis` only, and always, for an actual `stop` or `host_boundary`.
+Continuation records truth and resumption capability; RVTF is not a scheduler
+and never invokes the next workflow merely because the parent remains active.
+
+## Minimum Additive Fields By Mode
+
+| Mode | Minimum 0.4 economy detail |
+| --- | --- |
+| `discovery` | Candidate hierarchy and reuse assumptions only; no closure claim. |
+| `lite` | Known parent reference where available; advisory continuation is allowed; cross-revision reuse names all comparison surfaces in a concise rationale. |
+| `standard` | Scope hierarchy and requiredness, orthogonal groups when used, four-tier verification policy with host floor, review cadence, assessment-backed cross-revision validity, and continuation authority. |
+| `strict` | Standard fields plus explicit verifier/dependency/environment basis, independent review for affected risk, specialist or separate batches when required, and assessed carry-forward. |
+
+These additions never relax canonical Requirement, Acceptance Item, Journey,
+review finding, gap, freeze, remediation, controlled-reopen, or Closure Packet
+truth.

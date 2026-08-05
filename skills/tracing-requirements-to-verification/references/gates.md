@@ -89,6 +89,26 @@ Before collecting formal review batches:
 - Do not let dimensions become requirements; findings still require RVTF
   classification and owner decisions.
 
+## Delivery Scope Inventory And Aggregation Gate
+
+Before using child or group progress in a closure decision:
+
+- Classify closure scopes only as `goal`, `milestone`, or `unit`.
+- Resolve every `parent_scope_ref`; reject cycles and confirm the reverse parent
+  relation agrees with `required_child_scope_refs` and
+  `required_for_parent`.
+- Require a `required_child_inventory_revision` for every authoritative child
+  inventory. An empty plan list or completed execution batch is not an
+  inventory revision.
+- Treat `execution_batch`, `verification_batch`, and `review_batch` groups as
+  orthogonal organization. Group completion never closes a member or parent.
+- Aggregate a parent only from required children in its current inventory.
+  `blocked` and `incomplete` children cannot support a closed parent.
+- Remove a child only through an accepted scope amendment plus an updated
+  inventory and requiredness record.
+- Keep `host_status` separate. Host `done`, `archived`, `shipped`, or override
+  closeout cannot promote RVTF disposition.
+
 ## Plan Gate
 
 Before coding:
@@ -139,6 +159,49 @@ Before accepting evidence:
 - All Items being `verified` does not verify a Journey when path evidence is
   absent; keep the Journey `implemented` and record an `evidence-gap`.
 
+## Evidence Registry, Reuse, And Invalidation Gate
+
+Before reusing a receipt or invalidating proof:
+
+- Separate reusable `evidence_artifacts` from target-specific
+  `evidence_claims`; one artifact may support multiple claims, but every claim
+  names one actual Acceptance Item or Journey and its exact proof.
+- Accept `evidence_claims[].validity.status: valid` only from a passed artifact.
+  `stale`, `invalidated`, and `unknown` cannot support `verified`.
+- Keep Item and Journey claims distinct. Every `evidence_ref` resolves to the
+  claim for that exact target.
+- When the artifact and checked revision differ, compare target, verifier,
+  relevant dependency basis, environment compatibility, and freshness. In
+  standard/strict, record the assessor, policy, rationale, before/after values,
+  and decision in a validity assessment. An opaque fingerprint is not enough.
+- Lite reuse still names all comparison surfaces in its rationale; otherwise
+  set the claim to `unknown` and run the applicable targeted gate.
+- Invalidate only affected claims and dependent trace objects. Do not downgrade
+  every target that shares the artifact, and do not let a Journey-only path
+  invalidation downgrade still-valid Item evidence.
+
+## Effective Gate And Verification Tier Gate
+
+Before selecting commands for a boundary:
+
+- Define the `worker`, `batch`, `milestone`, and `completion` tiers for a new
+  standard/strict verification policy.
+- Select the smallest sufficient tier for the current scope and trigger;
+  Milestone integration and Goal full-suite commands do not run early merely
+  because the semantic audit is named Completion Gate.
+- Compute effective gates as the union of applicable RVTF-required gates and
+  host-native mandatory gates. Economy and reuse may never subtract the host
+  floor.
+- A valid old claim may skip only a gate whose freshness policy permits reuse.
+  Current-tree, task-completion, phase, build, merge, ship, and host-declared
+  full-suite gates still require their matching fresh receipts.
+- Keep claim validity, `host_gate_status`, and `current_test_status_claim`
+  separate. Only a matching passed receipt at the current revision and
+  lifecycle boundary supports the latter two facts.
+- Keep a failed required gate visible. Isolate its first real failure, use the
+  applicable retry/quarantine/escalation policy, and never rerun indefinitely
+  for an accidental pass.
+
 ## Review Finding Intake Gate
 
 Before implementing review feedback:
@@ -168,6 +231,29 @@ Before freezing a review finding set:
 
 Freeze defines bounded remediation scope only. It is not delivery completion.
 
+## Review Cadence And Parent Coverage Gate
+
+Before relying on review coverage:
+
+- Set cadence to `unit`, `batch`, `milestone`, or `host_native`; dimension count
+  does not determine reviewer or batch count.
+- With `child_scope_policy: covered_at_parent`, list exact
+  `covered_child_scope_refs`. Until the parent review actually runs, record
+  `review_state: pending_at_parent`, never completed review evidence.
+- If a Unit's closure contract requires that formal parent review, keep the Unit
+  incomplete while coverage is pending. Unit self-checks remain useful but are
+  not the missing formal receipt.
+- After parent review, associate coverage only with children included in the
+  reviewed subject revision.
+- Preserve every `host_native_required_batches` entry. Parent coverage cannot
+  replace mandatory per-task, per-build, per-phase, or pre-merge review.
+- Use `combined_allowed` only when one qualified batch can cover the declared
+  dimensions. Use `separate_required` for expertise, segregation, or policy,
+  and `host_native` for the host's actual fan-out.
+- Treat strict implementer independence as a coverage property, not a command
+  to create one batch per dimension. Combination never removes a required
+  specialist or independent batch.
+
 ## Remediation Review Gate
 
 During remediation review:
@@ -181,6 +267,21 @@ During remediation review:
   reopen the epoch.
 - If remediation introduces a direct regression, record a late finding and
   reopen on `remediation_regression`.
+
+## Review Carry-Forward And Delta Gate
+
+When remediation changes the review subject revision:
+
+- Never edit or relabel the historical batch's epoch or subject revision.
+- Carry unchanged coverage through a new `review_coverage_carry_forward` that
+  resolves the source batch and records exact from/to revisions, unchanged
+  dimensions, assessor, and accepted impact assessment.
+- Require the impact assessment and carry-forward to agree on source, from/to,
+  dimensions, assessor, rationale, and decision.
+- Carry only dimensions the source batch actually covered.
+- Run a bounded delta batch for changed dimensions. If unchanged impact cannot
+  be established, create a new batch or use the existing controlled-reopen
+  rules; do not silently rebind old evidence.
 
 ## Controlled Reopen Gate
 
@@ -205,10 +306,42 @@ Before expanding scope:
 - Do not implement an unapproved amendment except to stop an active safety or production incident.
 - If an amendment blocks completion, reflect that in the closure packet.
 
+## Continuation Gate
+
+Before ending a new 0.4 non-Goal closure:
+
+- Record the actual parent reference and disposition, remaining scope refs,
+  next entry conditions, continuation mode, authority, locator, and execution
+  action.
+- Use `durable_host` only for authoritative persistent host state;
+  `artifact_only` for a durable RVTF artifact without scheduling authority; and
+  `advisory` when the user or external orchestrator retains the decision.
+- Use `continue`, `stop`, `await_owner`, or `host_boundary` as the action. Add a
+  canonical `stop_basis` only, and always, for an actual stop or host boundary.
+- Keep blocked remaining work and its owner/entry conditions explicit. A host
+  runtime boundary does not change parent disposition.
+- Record continuation capability only. RVTF never schedules the next command,
+  workflow, story, reviewer, or session automatically.
+
+## Operational Economy Warning Gate
+
+Economy warnings never change delivery truth or skip a required gate. Warn when
+the same command or review coverage is repeated on unchanged inputs, verifier
+fan-out grows without target need, or an iteration changes no implementation,
+evidence claim, finding, gap, or disposition.
+
+On no progress, select a new unblocked scope, record a concrete rationale for
+the repeat, or create an explicit blocker with owner and entry condition. Do not
+use elapsed time, iteration count, token pressure, or response termination to
+fabricate closure, and do not launch another host workflow merely to stay busy.
+
 ## Completion Gate
 
 Before saying complete:
 
+- Treat this as a full semantic audit of the current scope, not an unconditional
+  instruction to run every repository suite. Run the verification-policy tier
+  selected for this boundary plus every mandatory fresh/full host gate.
 - Re-read the latest requirements, plan, and gap ledger.
 - Verify every active required Acceptance Item has a valid disposition and every
   `verified` Item has fresh, target-specific evidence.
@@ -229,6 +362,10 @@ Before saying complete:
   `deferred`, `blocked`, or `rejected` with owner and rationale where required.
 - Produce a closure packet with separate Requirement, Acceptance Item, Journey,
   gap, review, amendment, verification-run, and residual-risk dispositions.
+- For delivery hierarchies, run the inventory/aggregation gate and preserve
+  incomplete or blocked parent truth after a child closes.
+- For a new non-Goal 0.4 closure, validate its continuation contract without
+  treating continuation as scheduler authority.
 - Call delivery `complete` only when every required Requirement and every
   applicable Journey is `verified`.
 - Do not start the next phase until leftover work becomes next-phase scope, entry criteria, or explicit exclusion.

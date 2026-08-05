@@ -29,3 +29,9 @@ if [[ "${found}" -eq 0 ]]; then
   exit 1
 fi
 
+if [[ ! -f "${ROOT}/scripts/validate-schema-examples.py" ]]; then
+  echo "schema example validator not found: ${ROOT}/scripts/validate-schema-examples.py" >&2
+  exit 1
+fi
+
+"${PYTHON_BIN}" "${ROOT}/scripts/validate-schema-examples.py"
