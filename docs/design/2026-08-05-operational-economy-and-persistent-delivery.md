@@ -1,14 +1,16 @@
 # RVTF Operational Economy And Goal Continuation Design
 
-**Status:** Revised design after cross-method implementation audit; awaiting
-owner review; implementation has not started
+**Status:** Implemented RVTF `0.4.0` candidate. Core semantics, additive schema
+and invariant validation, host adapters, and behavioral receipts are present in
+the repository. The final converged Completion Gate, tarball build, and package
+inspection remain the separate Task 8 gate.
 
 **Date:** 2026-08-05
 
 **Baseline:** `0.3.0` on `codex/journey-trace-v1` at `a9cd8a5`
 
-**Candidate target version:** `0.4.0`; this is a design target, not a release
-claim
+**Implemented candidate version:** `0.4.0`; this is source/version metadata, not
+a release claim
 
 **Affected project:** `rvtf-skills`
 
@@ -24,13 +26,14 @@ claim
 Adapter implementation 与 forward tests 必须记录各自实际使用的 host revision；若宿主
 生命周期在实施前发生变化，应先更新 mapping decision，而不是沿用本表的旧假设。
 
-**Implementation owner:** A follow-up session. This document defines the
-intended behavior, implementation boundary, and acceptance design. It does not
-modify or publish the Skills.
+**Implementation ownership:** The candidate implementation and Task 7
+documentation/version slice are recorded on the current feature branch. Task 8
+owns the final repository/package evidence gate. This document does not claim a
+package build, install, merge, push, tag, or publication.
 
 ## 1. 摘要
 
-RVTF `0.3.0` 已经补齐两个关键的交付真实性对象：
+RVTF `0.4.0` 候选版保留了 `0.3.0` 补齐的两个关键交付真实性对象：
 
 ```text
 Requirement Trace
@@ -62,8 +65,9 @@ Journey Trace
 当宿主方法缺少更具体的 cadence 和 reuse policy 时，agent 容易选择最保守但成本最高
 的解释。
 
-本设计因此新增一个宿主中立的 **Operational Economy Plane**，并将原先容易被误解为
-runtime 能力的 “Persistent Delivery” 收敛为 **Goal Continuation Contract**：
+`0.4.0` 候选实现因此新增一个宿主中立的 **Operational Economy Plane**，并将
+原先容易被误解为 runtime 能力的 “Persistent Delivery” 收敛为
+**Goal Continuation Contract**：
 
 ```text
 Delivery Truth Plane
@@ -146,11 +150,11 @@ evidence、strict independence 或受控 reopen。
 2. 在 adapters 中明确宿主的实际执行映射；
 3. 保持具体命令、并行度、预算和调度权仍归宿主所有。
 
-## 3. 当前实现缺口
+## 3. `0.3.0` 基线实现缺口
 
 ### 3.1 Evidence 的复用语义不完整
 
-当前 schema 可以记录：
+`0.3.0` 基线 schema 可以记录：
 
 - `subject_revision`；
 - `target`；
@@ -172,11 +176,11 @@ evidence、strict independence 或受控 reopen。
 
 ### 3.2 Completion Gate 与全量测试被混淆
 
-当前文档使用 `full RVTF Completion Gate` 表示完整检查所有 Requirement、Item、
+`0.3.0` 基线文档使用 `full RVTF Completion Gate` 表示完整检查所有 Requirement、Item、
 Journey、review、gap 和 closure decision。这里的 `full` 是**语义覆盖完整**，不是
 **无条件运行 full test suite**。
 
-但当前 gate 没有定义 worker、batch、milestone 和 completion 四种验证层级，宿主
+`0.3.0` 基线 gate 没有定义 worker、batch、milestone 和 completion 四种验证层级，宿主
 也没有统一的 command mapping。agent 因此可能在每个修复后都调用相同的全仓脚本，
 即使输入和受影响目标没有变化。
 
@@ -191,7 +195,7 @@ Bounded Review Governance 已经解决开放式 review loop：
 - delta re-review；
 - 仅在受控 basis 下 reopen。
 
-但它尚未明确：
+但 `0.3.0` 基线尚未明确：
 
 - 一个 Milestone 的 review contract 是否可以覆盖多个 Execution Unit；
 - Unit changes 是否由 parent review 覆盖，以及何时可引用该 receipt；
@@ -203,11 +207,13 @@ Bounded Review Governance 已经解决开放式 review loop：
 expected batches，容易被进一步解释为“每个 task 都必须重复两轮 formal review”。但
 当前 Superpowers SDD 的真实实现是每 task 一个 combined reviewer，返回 specification
 compliance 与 task quality 两个 verdict；所有 tasks 完成后再执行一次 whole-branch review。
-下一版必须映射这个实际结构，而不是继续固化已过时的“双 reviewer”基线。
+`0.4.0` 候选 adapter 映射这个实际结构，不再固化已过时的“双
+reviewer”基线。
 
 ### 3.4 RVTF 没有表达 Goal continuation 与父子 closure
 
-RVTF 可以附着到 task、increment、phase 或 release，但还没有一个最小层级模型来表达：
+RVTF `0.3.0` 可以附着到 task、increment、phase 或 release，但还没有一个
+最小层级模型来表达：
 
 ```text
 Goal
@@ -231,7 +237,7 @@ locator。
 
 ## 4. 问题陈述
 
-下一版 RVTF 需要在不降低交付真实性的前提下，稳定回答以下问题：
+RVTF `0.4.0` 候选实现在不降低交付真实性的前提下，稳定回答以下问题：
 
 1. 一次 verifier 运行能否为多个 Acceptance Item 产生独立、可审计的 evidence claims？
 2. 一份 evidence claim 在什么条件下可跨 revision 复用，什么条件下必须失效？
@@ -248,7 +254,7 @@ locator。
 
 ### 5.1 目标
 
-本设计应实现：
+`0.4.0` 候选实现：
 
 - 区分 evidence artifact 与 target-specific evidence claim；
 - 允许一个 artifact 安全支持多个 Item 或 Journey target；
@@ -571,7 +577,8 @@ RVTF 不得因 parent 仍 active 自动调用下一个宿主 workflow。
 
 ### 10.1 Artifact 与 Claim 分离
 
-当前内联 evidence 将 artifact metadata 和 target proof 混在一起。下一版应区分：
+`0.3.0` 内联 evidence 将 artifact metadata 和 target proof 混在一起。
+`0.4.0` 候选实现区分：
 
 ```text
 Evidence Artifact
@@ -667,7 +674,7 @@ evidence_validity_assessments:
 
 ### 10.4 兼容现有内联 Evidence
 
-`0.4.0` 应允许两种表示：
+`0.4.0` 允许两种表示：
 
 1. 现有 Item/Journey 内联 evidence；
 2. 新增 `evidence_ref` 指向 artifact registry 和 target-specific claim。
@@ -870,7 +877,7 @@ warning 应促使 agent 说明必要性或复用证据，但不能自动跳过 r
 
 ### 13.1 Dimension Coverage 与 Batch 解耦
 
-现有 review dimensions 保持不变。下一版需要明确：
+现有 review dimensions 保持不变。`0.4.0` 候选实现明确：
 
 - dimension 是规范性 coverage；
 - reviewer role 和 batch count 是宿主执行选择；
@@ -982,7 +989,7 @@ assessment、assessor 和 decision。无法证明 dimension 未受影响时，�
 
 ### 14.1 Superpowers
 
-`adapting-rvtf-to-superpowers` 应增加：
+`adapting-rvtf-to-superpowers` 候选映射：
 
 - `writing-plans` 在 plan/branch Milestone 或 execution group 级声明 verification policy
   与 review cadence；
@@ -1003,7 +1010,7 @@ assessment、assessor 和 decision。无法证明 dimension 未受影响时，�
 
 ### 14.2 Agent Skills
 
-`adapting-rvtf-to-agent-skills` 应增加：
+`adapting-rvtf-to-agent-skills` 候选映射：
 
 - plan checkpoint/phase 可映射 Milestone；最小 thin vertical Task 映射 Unit；只有当一个
   Task 真正包含多个独立 closure increments 时，Task 才映射 Milestone、increments 映射 Units；
@@ -1022,7 +1029,7 @@ assessment、assessor 和 decision。无法证明 dimension 未受影响时，�
 
 ### 14.3 GSD
 
-`adapting-rvtf-to-gsd` 应增加：
+`adapting-rvtf-to-gsd` 候选映射：
 
 - 固定映射：GSD Milestone → RVTF Goal，GSD Phase → RVTF Milestone，GSD PLAN → RVTF
   Unit，execute-phase Wave → orthogonal execution batch；PLAN 内 Tasks 是 Unit 内检查点；
@@ -1040,7 +1047,7 @@ assessment、assessor 和 decision。无法证明 dimension 未受影响时，�
 
 ### 14.4 BMAD
 
-`adapting-rvtf-to-bmad` 应增加：
+`adapting-rvtf-to-bmad` 候选映射：
 
 - Epic 或 SPEC scope 映射 Goal/Milestone，Story 映射 Unit；Build run 是附着于 Story 的
   execution record，不发明 “Build Unit” scope；
@@ -1067,7 +1074,7 @@ assessment、assessor 和 decision。无法证明 dimension 未受影响时，�
   和 resume locator；
 - 不以运行次数、token 或 elapsed time 声明 delivery complete。
 
-## 15. Schema Proposal
+## 15. Implemented Additive Schema
 
 本节给出语义字段，不要求所有使用者采用 YAML。Markdown 表格或 host-native artifact
 只要保留同等含义即可。
@@ -1272,8 +1279,9 @@ closure_packet:
 
 ## 17. Pressure Scenarios
 
-实现前先将以下场景写入 `references/pressure-scenarios.md`，并记录 baseline behavior。
-先看到旧 Skill 的失败或歧义，再修改 core 和 adapters。
+以下场景在实现前先写入 `references/pressure-scenarios.md` 并记录 baseline
+behavior；候选实现的 fresh-agent 和回归 receipts 也已记录在同一 reference
+中。这些是仓库内行为证据，不代替 Task 8 的最终 package gate。
 
 ### 17.1 Shared Artifact Across Many Items
 
@@ -1526,9 +1534,11 @@ combined reviewer、两个 verdict，所有 tasks 后一个 whole-branch review�
 9. 没有把未运行的测试写成通过；
 10. 发布、安装、merge、push、tag 状态被准确报告。
 
-## 19. 实施方案
+## 19. 实施记录与剩余最终 Gate
 
 ### 19.1 Phase 0: Baseline And Red Pressure Scenarios
+
+**状态：** 已实现；`0.3.0` baseline 观测、场景和 deterministic fixtures 已记录。
 
 **目标：** 证明缺口真实存在，避免先写规则再为规则寻找理由。
 
@@ -1552,6 +1562,8 @@ combined reviewer、两个 verdict，所有 tasks 后一个 whole-branch review�
 
 ### 19.2 Phase 1: Core Semantics
 
+**状态：** 已实现；core-only candidate 行为 receipts 已记录。
+
 修改：
 
 - `skills/tracing-requirements-to-verification/SKILL.md`
@@ -1570,6 +1582,9 @@ combined reviewer、两个 verdict，所有 tasks 后一个 whole-branch review�
 tier selection 和 child/parent closure。
 
 ### 19.3 Phase 2: Schema, Gates, And Review Governance
+
+**状态：** 已实现；additive schema、gate、review economy 和 deterministic
+invariant validator 已进入仓库。
 
 修改：
 
@@ -1595,6 +1610,8 @@ tier selection 和 child/parent closure。
 
 ### 19.4 Phase 3: Adapter Mapping
 
+**状态：** 已实现；四个 adapter 的 pinned-host forward-test receipts 已记录。
+
 修改：
 
 - `skills/adapting-rvtf-to-superpowers/SKILL.md`
@@ -1609,6 +1626,8 @@ tier selection 和 child/parent closure。
 mandatory gate、status authority、continuation capability 和对应宿主 exact revision。
 
 ### 19.5 Phase 4: Documentation And Versioning
+
+**状态：** 已实现为 `0.4.0` 候选文档与版本 metadata；不构成发布声明。
 
 修改：
 
@@ -1628,6 +1647,10 @@ mandatory gate、status authority、continuation capability 和对应宿主 exac
 验收：中英文能力边界一致，版本 metadata 一致。
 
 ### 19.6 Phase 5: Converged Review And Package Evidence
+
+**状态：** 待 Task 8 执行。当前仓库已有 local deterministic validation 和
+behavioral receipts，但最终 combined HEAD 的 Completion Gate、tarball 生成、内容/
+版本检查与 hash receipt 仍是独立的未完成 gate。
 
 为避免本次优化本身再次落入过度 review，实施采用以下节奏：
 
@@ -1782,15 +1805,16 @@ Goal/ledger 或外部 orchestrator 同时维护真实状态，会出现两个权
 
 ## 23. 决策总结
 
-下一版 RVTF 应保留 `0.3.0` 的 Requirement、Acceptance Item 和 Journey 双轴真实性，
-并新增一个轻量、声明式的 Operational Economy Plane：
+RVTF `0.4.0` 候选实现保留 `0.3.0` 的 Requirement、Acceptance Item 和
+Journey 双轴真实性，并新增一个轻量、声明式的 Operational Economy
+Plane：
 
 ```text
 不是减少必须证明的事实，
 而是减少证明同一事实的重复执行。
 ```
 
-最终行为应满足：
+已实现的候选行为满足：
 
 - 一个 verifier 可以产生多个 target-specific claims；
 - 无关 revision 变化不会让全部证据失效，但复用必须有可审计 validity assessment；
@@ -1805,6 +1829,7 @@ Goal/ledger 或外部 orchestrator 同时维护真实状态，会出现两个权
 - Unit closure 不会让 Goal 提前结束，也不会让 RVTF 自动调度下一宿主 workflow；
 - adapters 明确宿主如何执行，RVTF core 仍保持方法中立。
 
-该设计以压力场景先行、additive schema、deterministic invariant validation、四 adapter
-forward tests 和收敛式 review 作为实施约束。只有在全部 `OE-*` Requirements 形成证据
-闭环后，才进入版本提升和打包阶段。
+该候选实现以压力场景先行、additive schema、deterministic invariant validation、
+四 adapter forward tests 和收敛式 review 作为约束。源码与版本 metadata 已到
+`0.4.0` 候选状态；Task 8 仍必须对 combined HEAD 执行最终 Completion Gate 和
+package 检查，且该 gate 不会自动构成安装、合并、push、tag 或发布授权。

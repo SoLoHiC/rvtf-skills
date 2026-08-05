@@ -1,6 +1,6 @@
 {
   "name": "rvtf-skills",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Requirements-to-Verification Traceability Framework skills and adapters.",
   "type": "module",
   "files": [

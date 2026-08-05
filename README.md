@@ -8,6 +8,12 @@ It is designed for agentic software work where a plan may be detailed, tests may
 pass, and implementation tasks may be checked off, but the actual delivery still
 needs evidence that each requirement was satisfied without unbounded scope creep.
 
+This repository contains the implemented RVTF `0.4.0` candidate. It retains the
+`0.3.0` Requirement Trace, canonical Acceptance Item, and Journey Trace truth
+model, and adds an Operational Economy Plane for organizing proof and execution
+without weakening that truth. Candidate version metadata is not by itself a
+package, install, merge, tag, or publication claim.
+
 English | [中文](./README-CN.md)
 
 ## What RVTF Helps With
@@ -45,6 +51,47 @@ No review finding becomes implementation work until it is classified and linked
 to a requirement decision.
 ```
 
+## RVTF 0.4.0 Candidate Capabilities
+
+- Delivery truth remains authoritative. Economy policy may reduce duplicate
+  work, but the exact gate set is `host-native mandatory gates ∪ RVTF-required
+  gates`; the stronger freshness, full-suite, review, or specialist requirement
+  wins.
+- `goal`, `milestone`, and `unit` express closure containment. Execution,
+  verification, and review batches are orthogonal groups, not closure parents.
+  A blocked or incomplete required child, or a host `done`, `archived`,
+  `shipped`, or override status, cannot automatically close its RVTF parent.
+- Reusable Evidence Artifacts may support multiple target-specific Evidence
+  Claims. Every claim states what it proves and records an independent
+  `evidence_claims[].validity.status`; cross-revision reuse requires an auditable
+  assessment, and invalidation propagates only to affected claims and trace
+  objects.
+- Claim reuse does not assert that current tests pass. It cannot skip a host's
+  mandatory fresh, current-tree, full-suite, or review gate.
+- Verification uses `worker`, `batch`, `milestone`, and `completion` tiers. The
+  Completion Gate is a complete semantic audit of required truth, evidence,
+  reviews, gaps, gates, and continuation, not an unconditional command to run
+  every repository test suite.
+- Review dimensions define coverage, not reviewer or batch count. Parent review
+  moves a child from `pending_at_parent` to `covered_at_parent` only after an
+  exact-revision receipt exists. Strict independence, required specialists, and
+  host-native fan-out remain mandatory; historical batches stay immutable, with
+  assessed carry-forward, delta review, or controlled reopen used across
+  revisions.
+- The Goal Continuation Contract records
+  `durable_host|artifact_only|advisory` mode and
+  `continue|stop|await_owner|host_boundary` action. It is not a scheduler or
+  persistent runtime: the host, user, or orchestrator retains authority.
+- Artifact depth stays proportional: `lite` keeps compact trace/evidence notes
+  and explicit rationale; `standard` adds scope, policy, validity, review, and
+  continuation records; `strict` adds auditable comparison basis, independent
+  review, and carry-forward assessment for the affected risk scope.
+
+For concrete fields and gates, use the [core Skill](./skills/tracing-requirements-to-verification/SKILL.md),
+[schema reference](./skills/tracing-requirements-to-verification/references/schema.md),
+[gate reference](./skills/tracing-requirements-to-verification/references/gates.md),
+and [review-governance reference](./skills/tracing-requirements-to-verification/references/review-governance.md).
+
 ## When To Use It
 
 Use RVTF when work has multiple requirements, phases, acceptance criteria,
@@ -79,11 +126,11 @@ Do not lower the mode to justify an unsupported completion claim.
 
 | Skill | Purpose |
 | --- | --- |
-| `tracing-requirements-to-verification` | Core RVTF method: Requirement Trace, canonical Acceptance Items, Journey Trace, item/path evidence, bounded review governance, gap ledger, scope amendments, and dual-axis closure. |
-| `adapting-rvtf-to-superpowers` | Adds RVTF traceability to Superpowers workflows such as brainstorming, writing plans, code review, verification, branch finishing, and skill writing. |
-| `adapting-rvtf-to-agent-skills` | Adds RVTF to agent-skill planning, incremental implementation, doubt handling, code review, and definition-of-done practices. |
-| `adapting-rvtf-to-gsd` | Connects RVTF to GSD goal convergence, phase validation, ship decisions, and gap-control workflows. |
-| `adapting-rvtf-to-bmad` | Connects RVTF to BMAD specs, memlogs, adversarial review, edge-case review, verification-gap review, and preservation checks. |
+| `tracing-requirements-to-verification` | Core RVTF method: Requirement, Acceptance Item, and Journey truth; Operational Economy; evidence validity; verification/review governance; gaps, amendments, and closure. |
+| `adapting-rvtf-to-superpowers` | Maps RVTF scopes, gates, review coverage, and continuation onto Superpowers planning, task review, verification, and branch finishing without replacing host requirements. |
+| `adapting-rvtf-to-agent-skills` | Maps RVTF onto Agent Skills planning, build/review/ship boundaries, specialist fan-out, evidence, and continuation while preserving host authority. |
+| `adapting-rvtf-to-gsd` | Maps RVTF containment and economy onto GSD goals, phases, PLANs, Waves, validation, shipping, and durable `.planning` authority. |
+| `adapting-rvtf-to-bmad` | Maps RVTF onto BMAD specs, Stories, Build/build-auto, review/triage, memlogs, and orchestrator continuation without treating a Build run as closure. |
 
 The adapter skills do not replace their host methods. They map native tasks,
 stories, phases, or increments to RVTF IDs and feed back item evidence, path
@@ -135,6 +182,10 @@ skills/
   adapting-rvtf-to-bmad/
 scripts/
   validate.sh
+  validate-schema-examples.py
+  fixtures/schema/
+    positive/
+    negative/
   install.sh
   package.sh
 package.json
@@ -142,10 +193,18 @@ package.json
 
 ## Development
 
-Validate skill metadata:
+Validate all five Skills plus the deterministic positive/negative schema and
+invariant fixtures:
 
 ```bash
 scripts/validate.sh
+```
+
+Run only the schema/invariant fixture validator when working on the additive
+artifact contracts:
+
+```bash
+python3 scripts/validate-schema-examples.py
 ```
 
 If the default Python does not have `PyYAML`, pass a Python from a prepared

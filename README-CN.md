@@ -4,6 +4,12 @@ Requirements-to-Verification Traceability Framework (RVTF，需求到验证的�
 
 它面向 agentic 软件工程场景：计划可能很详细，测试可能已经通过，任务列表也可能已经完成，但我们仍然需要证明每一项需求都被充分实现，并且评审过程中发现的问题没有无边界地膨胀成新需求。
 
+当前仓库包含已实现的 RVTF `0.4.0` 候选版。它保留 `0.3.0` 的
+Requirement Trace、canonical Acceptance Item 和 Journey Trace 交付真值模型，
+并新增 Operational Economy Plane，用于在不降低真实性的前提下组织
+证据与执行。候选版版本 metadata 本身不代表已打包、安装、合并、
+打 tag 或发布。
+
 中文 | [English](./README.md)
 
 ## RVTF 解决什么问题
@@ -41,6 +47,43 @@ to a requirement decision.
 
 也就是说，RVTF 不是阻止 review 发现问题，而是阻止 review finding 无边界地变成新需求。
 
+## RVTF 0.4.0 候选能力
+
+- Delivery truth 始终保持权威。Economy policy 可减少重复工作，但精确的
+  gate 集合是 `host-native mandatory gates ∪ RVTF-required gates`；对
+  freshness、full suite、review 或 specialist 的要求取更强者。
+- `goal`、`milestone` 和 `unit` 表达 closure containment。Execution、
+  verification 和 review batch 是正交 group，不是 closure parent。被阻塞
+  或未完成的 required child，以及宿主的 `done`、`archived`、`shipped`
+  或 override status，都不能自动关闭其 RVTF parent。
+- 可复用的 Evidence Artifact 可以支持多条 target-specific Evidence Claim。
+  每条 claim 都要说明所证明的事实，并独立记录
+  `evidence_claims[].validity.status`；cross-revision 复用需要可审计评估，
+  失效只传播到受影响的 claims 和 trace objects。
+- Claim 复用不能声明当前测试已通过，也不能跳过宿主强制的 fresh、
+  current-tree、full-suite 或 review gate。
+- Verification 分为 `worker`、`batch`、`milestone` 和 `completion` 四层。
+  Completion Gate 是对 required truth、evidence、review、gap、gate 和
+  continuation 的完整语义审计，不是无条件执行仓库全部测试套件的命令。
+- Review dimensions 定义 coverage，不定义 reviewer 或 batch 数量。
+  Parent review 只能在存在精确 revision receipt 后，才将 child 从
+  `pending_at_parent` 改为 `covered_at_parent`。Strict independence、required
+  specialist 和 host-native fan-out 必须保留；历史 batch 保持不可变，
+  跨 revision 使用经评估的 carry-forward、delta review 或 controlled reopen。
+- Goal Continuation Contract 记录
+  `durable_host|artifact_only|advisory` mode 和
+  `continue|stop|await_owner|host_boundary` action。它不是 scheduler 或持久
+  runtime；宿主、用户或 orchestrator 仍保留权威。
+- Artifact 深度与风险相称：`lite` 保留简洁的 trace/evidence 记录和
+  显式 rationale；`standard` 增加 scope、policy、validity、review 和 continuation
+  记录；`strict` 在受影响风险范围增加可审计的比较基础、独立评审和
+  carry-forward assessment。
+
+具体字段和 gate 请参阅 [核心 Skill](./skills/tracing-requirements-to-verification/SKILL.md)、
+[schema reference](./skills/tracing-requirements-to-verification/references/schema.md)、
+[gate reference](./skills/tracing-requirements-to-verification/references/gates.md) 和
+[review-governance reference](./skills/tracing-requirements-to-verification/references/review-governance.md)。
+
 ## 什么时候使用
 
 当工作中存在多项需求、阶段、验收标准、实现任务、验证证据、评审发现、范围变化、交付 gap、残余风险，或需要声明“已完成”时，适合使用 RVTF。
@@ -73,11 +116,11 @@ RVTF 可以根据风险轻重选择不同深度：
 
 | Skill | 作用 |
 | --- | --- |
-| `tracing-requirements-to-verification` | RVTF 核心方法：Requirement Trace、canonical Acceptance Item、Journey Trace、item/path evidence、bounded review governance、gap ledger、scope amendment 和双轴 closure。 |
-| `adapting-rvtf-to-superpowers` | 将 RVTF 接入 Superpowers 的 brainstorming、writing plans、code review、verification、branch finishing 和 skill writing 流程。 |
-| `adapting-rvtf-to-agent-skills` | 将 RVTF 接入 agent-skill planning、增量实现、doubt handling、code review 和 definition-of-done。 |
-| `adapting-rvtf-to-gsd` | 将 RVTF 接入 GSD 的目标收敛、阶段验证、ship 决策和 gap control。 |
-| `adapting-rvtf-to-bmad` | 将 RVTF 接入 BMAD 的 spec、memlog、adversarial review、edge-case review、verification-gap review 和 preservation check。 |
+| `tracing-requirements-to-verification` | RVTF 核心方法：Requirement、Acceptance Item 和 Journey truth；Operational Economy；evidence validity；verification/review governance；gap、amendment 和 closure。 |
+| `adapting-rvtf-to-superpowers` | 将 RVTF scope、gate、review coverage 和 continuation 映射到 Superpowers planning、task review、verification 和 branch finishing，不替代宿主要求。 |
+| `adapting-rvtf-to-agent-skills` | 将 RVTF 映射到 Agent Skills planning、build/review/ship boundary、specialist fan-out、evidence 和 continuation，同时保留宿主权威。 |
+| `adapting-rvtf-to-gsd` | 将 RVTF containment 和 economy 映射到 GSD goal、phase、PLAN、Wave、validation、shipping 和持久 `.planning` 权威。 |
+| `adapting-rvtf-to-bmad` | 将 RVTF 映射到 BMAD spec、Story、Build/build-auto、review/triage、memlog 和 orchestrator continuation，不将 Build run 当作 closure。 |
 
 这些 adapter skills 不替代原有方法论。它们将宿主的 task、story、phase 或 increment
 映射到 RVTF ID，并回写 item evidence、path evidence 和 gap，同时保留宿主自己的生命
@@ -124,6 +167,10 @@ skills/
   adapting-rvtf-to-bmad/
 scripts/
   validate.sh
+  validate-schema-examples.py
+  fixtures/schema/
+    positive/
+    negative/
   install.sh
   package.sh
 package.json
@@ -131,10 +178,18 @@ package.json
 
 ## 开发
 
-验证 skill metadata：
+验证全部五个 Skills，以及确定性 positive/negative schema 和 invariant
+fixtures：
 
 ```bash
 scripts/validate.sh
+```
+
+在修改 additive artifact contract 时，可以只运行 schema/invariant fixture
+validator：
+
+```bash
+python3 scripts/validate-schema-examples.py
 ```
 
 如果默认 Python 环境没有 `PyYAML`，可以指定已准备好的 Python：
