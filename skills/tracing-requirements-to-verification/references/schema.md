@@ -561,7 +561,7 @@ delivery_scopes:
     parent_scope_ref: milestone:example
     required_for_parent: true
     host_status: done
-    disposition: complete
+    disposition: incomplete
     review_state: pending_at_parent
 
   - scope_ref: unit:example-next
@@ -590,6 +590,35 @@ A closed parent may aggregate only required children with `complete`,
 child requires an accepted scope amendment and an updated inventory; a stale
 `required_for_parent: true` is not enough. `host_status` records host lifecycle
 truth separately and cannot override a blocked or incomplete RVTF disposition.
+
+An ordinary child that was never required may use `required_for_parent: false`
+without inventing history. When the artifact explicitly claims that a formerly
+required child was removed, record that claim and its accepted amendment:
+
+```yaml
+delivery_scopes:
+  - scope_ref: unit:removed-example
+    scope_kind: unit
+    parent_scope_ref: milestone:example
+    required_for_parent: false
+    required_inventory_exclusion:
+      amendment_ref: AMEND-REMOVE-EXAMPLE-001
+      inventory_revision: sha256:milestone-inventory-v4
+    disposition: incomplete
+
+scope_amendments:
+  - id: AMEND-REMOVE-EXAMPLE-001
+    decision: accepted
+    owner: delivery-owner
+    parent_scope_ref: milestone:example
+    removed_required_child_scope_refs: [unit:removed-example]
+    required_child_inventory_revision: sha256:milestone-inventory-v4
+```
+
+The child must be absent from that parent revision's
+`required_child_scope_refs`; its exclusion record, amendment parent/child, and
+the parent's current `required_child_inventory_revision` must agree. A false or
+missing `required_for_parent` value alone neither claims nor proves removal.
 
 ## Additive 0.4 Evidence Registry
 
@@ -775,6 +804,12 @@ explicit; before the parent batch actually runs, record
 `combined_allowed`, `separate_required`, or `host_native`. Combination does not
 remove strict independence, specialist expertise, segregation requirements, or
 `host_native_required_batches`.
+
+A scope in `review_state: pending_at_parent` remains `incomplete` when formal
+parent review is part of its closure contract. Change the state to
+`covered_at_parent` only after a closed epoch and its accepted batch or assessed
+carry-forward cover the child at the closure packet's exact `subject_revision`.
+`covered_at_parent` without that current-revision receipt is not closure proof.
 
 Historical batches keep their original epoch and subject revision forever.
 Carry-forward is a new assessment linking from/to revisions; it agrees with an

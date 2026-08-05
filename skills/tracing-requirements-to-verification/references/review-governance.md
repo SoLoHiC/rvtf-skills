@@ -204,8 +204,13 @@ With `child_scope_policy: covered_at_parent`, list every intended child in
 `covered_child_scope_refs`. Before the parent review actually runs, the child
 records `review_state: pending_at_parent`. This is an explicit future
 obligation, never proof, a passed review, or permission to close a Unit whose
-own contract requires formal review. After review closes on an exact revision,
-associate only child changes present in that revision.
+own contract requires formal review; that Unit's disposition remains
+`incomplete`. After review closes, change the child to
+`review_state: covered_at_parent` only when an actual closed epoch and its
+accepted batch or assessed carry-forward cover the child at the closure
+packet's exact subject revision. Associate only child changes present in that
+revision. A contract declaration, planned batch, or stale parent receipt cannot
+support `covered_at_parent` or closure.
 
 Parent coverage does not remove a host-native Unit, task, build, phase, merge,
 or ship review. Every entry in `host_native_required_batches` requires an actual

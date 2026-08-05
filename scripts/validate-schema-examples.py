@@ -267,6 +267,7 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
     scopes = _records(document, "delivery_scopes")
     scope_index = _index(scopes, "scope_ref")
+    amendments = _index(_records(document, "scope_amendments"), "id")
 
     for index, scope in enumerate(scopes):
         scope_ref = scope.get("scope_ref")
@@ -374,6 +375,47 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "optional-child-present-in-required-inventory",
                     f"delivery_scopes[{index}].required_for_parent",
                     f"optional child {scope_ref!r} appears in the required inventory",
+                )
+            )
+
+        exclusion = scope.get("required_inventory_exclusion")
+        if exclusion is None:
+            continue
+        exclusion_path = f"delivery_scopes[{index}].required_inventory_exclusion"
+        if not isinstance(exclusion, Mapping):
+            diagnostics.append(
+                _diag(
+                    "invalid-required-inventory-exclusion",
+                    exclusion_path,
+                    "required_inventory_exclusion must be a mapping",
+                )
+            )
+            continue
+        amendment = amendments.get(exclusion.get("amendment_ref"))
+        if amendment is None or amendment.get("decision") != "accepted":
+            diagnostics.append(
+                _diag(
+                    "required-child-removal-without-accepted-amendment",
+                    f"{exclusion_path}.amendment_ref",
+                    "claimed removal from required inventory must resolve an accepted scope amendment",
+                )
+            )
+            continue
+        inventory_revision = parent.get("required_child_inventory_revision")
+        removal_matches = (
+            scope.get("required_for_parent") is False
+            and not inventoried
+            and exclusion.get("inventory_revision") == inventory_revision
+            and amendment.get("parent_scope_ref") == parent_ref
+            and scope_ref in _string_list(amendment.get("removed_required_child_scope_refs"))
+            and amendment.get("required_child_inventory_revision") == inventory_revision
+        )
+        if not removal_matches:
+            diagnostics.append(
+                _diag(
+                    "required-child-removal-record-mismatch",
+                    exclusion_path,
+                    "removal claim, accepted amendment, requiredness, parent, child, and revised inventory must agree",
                 )
             )
 
@@ -1109,6 +1151,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
             contract is None
             or contract.get("child_scope_policy") != "covered_at_parent"
             or scope.get("scope_ref") not in _string_list(contract.get("covered_child_scope_refs"))
+            or contract.get("scope_ref") != scope.get("parent_scope_ref")
         ):
             diagnostics.append(
                 _diag(
@@ -1117,6 +1160,43 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "pending_at_parent requires explicit parent coverage for this child scope",
                 )
             )
+        if review_state == "pending_at_parent" and scope.get("disposition") in CLOSED_DISPOSITIONS:
+            diagnostics.append(
+                _diag(
+                    "pending-parent-review-closes-scope",
+                    f"delivery_scopes[{index}].disposition",
+                    "review_state: pending_at_parent is future coverage, so the formally reviewed scope must remain incomplete",
+                )
+            )
+        if review_state == "covered_at_parent" and (
+            contract is None
+            or contract.get("child_scope_policy") != "covered_at_parent"
+            or scope.get("scope_ref") not in _string_list(contract.get("covered_child_scope_refs"))
+            or contract.get("scope_ref") != scope.get("parent_scope_ref")
+        ):
+            diagnostics.append(
+                _diag(
+                    "uncontracted-parent-review-coverage",
+                    f"delivery_scopes[{index}].review_state",
+                    "covered_at_parent requires a parent contract that explicitly covers this child",
+                )
+            )
+        if review_state == "covered_at_parent":
+            scope_closure = document.get("closure_packet")
+            parent_review_receipt = scope_closure.get("review_closure") if isinstance(scope_closure, Mapping) else None
+            if (
+                not isinstance(scope_closure, Mapping)
+                or scope_closure.get("scope_ref") != scope.get("scope_ref")
+                or not isinstance(parent_review_receipt, Mapping)
+                or parent_review_receipt.get("status") != "closed"
+            ):
+                diagnostics.append(
+                    _diag(
+                        "missing-parent-review-closure-receipt",
+                        f"delivery_scopes[{index}].review_state",
+                        "covered_at_parent requires an actual closed parent review receipt for this child closure",
+                    )
+                )
 
     closure = document.get("closure_packet")
     review_closure = closure.get("review_closure") if isinstance(closure, Mapping) else None
@@ -1130,7 +1210,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
         subject.get("revision")
         for subject in review_closure.get("subject_refs", [])
         if isinstance(subject, Mapping) and isinstance(subject.get("revision"), str)
-    }:
+    } or (isinstance(closure, Mapping) and closure.get("subject_revision") not in _subject_revisions(epoch)):
         diagnostics.append(
             _diag(
                 "review-closure-revision-mismatch",
@@ -1239,15 +1319,6 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
 
-    closed_scope = scopes.get(closure.get("scope_ref")) if isinstance(closure, Mapping) else None
-    if closed_scope is not None and closed_scope.get("review_state") == "pending_at_parent":
-        diagnostics.append(
-            _diag(
-                "future-parent-review-used-as-evidence",
-                "closure_packet.review_closure",
-                "review_state: pending_at_parent is future coverage, not a closed review receipt",
-            )
-        )
     return diagnostics
 
 

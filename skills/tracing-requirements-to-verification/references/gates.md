@@ -104,8 +104,11 @@ Before using child or group progress in a closure decision:
   orthogonal organization. Group completion never closes a member or parent.
 - Aggregate a parent only from required children in its current inventory.
   `blocked` and `incomplete` children cannot support a closed parent.
-- Remove a child only through an accepted scope amendment plus an updated
-  inventory and requiredness record.
+- Do not invent history for a child that was always optional. When removal from
+  required scope is explicitly claimed, require `required_inventory_exclusion`
+  to resolve an accepted amendment naming the parent and removed child, and
+  require its inventory revision to equal the parent's updated authoritative
+  inventory. `required_for_parent: false` alone is not a removal decision.
 - Keep `host_status` separate. Host `done`, `archived`, `shipped`, or override
   closeout cannot promote RVTF disposition.
 
@@ -243,8 +246,10 @@ Before relying on review coverage:
 - If a Unit's closure contract requires that formal parent review, keep the Unit
   incomplete while coverage is pending. Unit self-checks remain useful but are
   not the missing formal receipt.
-- After parent review, associate coverage only with children included in the
-  reviewed subject revision.
+- After parent review, change the child to `covered_at_parent` only when an
+  actual closed epoch and accepted batch or assessed carry-forward cover that
+  child at the closure packet's exact subject revision. A declared contract or
+  stale parent receipt is not coverage.
 - Preserve every `host_native_required_batches` entry. Parent coverage cannot
   replace mandatory per-task, per-build, per-phase, or pre-merge review.
 - Use `combined_allowed` only when one qualified batch can cover the declared
