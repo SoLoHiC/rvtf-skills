@@ -111,32 +111,39 @@ RVTF `disposition`; keep host lifecycle values such as
 
 - A required `blocked` or incomplete child cannot support parent completion.
 - Only child dispositions `complete`, `complete_with_deferred_gaps`,
-  `complete_with_residual_risk`, or an owner-accepted removal recorded in a new
-  required-inventory revision may participate in parent closure.
+  `complete_with_residual_risk`, or a recorded accepted scope amendment that
+  explicitly removes that child followed by a new authoritative
+  `required_child_inventory_revision` may participate in parent closure. Owner
+  acceptance without the amendment is insufficient.
 - Propagate child deferred-gap or residual-risk truth to the corresponding
   parent disposition; never aggregate it silently to plain `complete`.
 - Closing a Unit never implies that its Milestone or Goal is complete.
 
 ### Goal Continuation Contract
 
-When the current scope ends below a known parent, record a Goal Continuation
-Contract with `parent_scope_ref`, `parent_disposition`, `continuation_mode`
+For a new Operational Economy closure packet declaring
+`schema_version: "0.4.0"` whose current scope ends below a known parent, record
+a Goal Continuation Contract with
+`parent_scope_ref`, `parent_disposition`, `continuation_mode`
 (`durable_host|artifact_only|advisory`), `authority_ref`, `resume_locator`,
 `remaining_scope_refs`, next entry conditions, and the actual
 `execution_action` (`continue|stop|await_owner|host_boundary`). Record
 `stop_basis` only when the current execution actually ends through `stop` or an
 explicit `host_boundary`; omit it for actions that do not stop at that point.
+Legacy `schema_version: "0.3.0"` closure packets remain valid without a
+continuation record.
 
 Apply mode-specific authority and locator rules: `durable_host` requires a
 resolvable `authority_ref` and `resume_locator`; `artifact_only` locates the
 durable continuation artifact and names its responsible authority without
 claiming a scheduler; `advisory` names the controlling user or orchestrator and
-uses an explicit unknown locator when none exists. Detached or `lite` work with
-an unknown parent must still record advisory continuation with
-`parent_scope_ref: unknown` and `parent_disposition: unknown`; it must not invent
-parent closure. RVTF records continuation and ownership; it never schedules or
-invokes the next host workflow, bypasses a host boundary, or overrides user or
-orchestrator authority.
+uses an explicit unknown locator when none exists. New `schema_version: "0.4.0"`
+detached or `lite` work with an unknown parent must still record advisory
+continuation with
+`parent_scope_ref: unknown` and `parent_disposition: unknown`; it must not
+invent parent closure. RVTF records continuation and ownership; it never
+schedules or invokes the next host workflow, bypasses a host boundary, or
+overrides user or orchestrator authority.
 
 If an iteration changes no implementation, Evidence Claim, review finding,
 gap, or disposition, emit a non-blocking operational-economy warning. Select a
@@ -155,12 +162,16 @@ never implies a Journey path claim. Supported legacy inline evidence remains
 valid only when it carries the same target-specific artifact and claim
 semantics; do not require a destructive representation migration.
 
-Use `valid|stale|invalidated|unknown` for `claim_validity`; these are not trace
-object statuses. For cross-revision reuse in `standard` or `strict`, record an
-auditable assessment containing the claim, from/to revision, policy, assessor,
+Use `valid|stale|invalidated|unknown` for
+`evidence_claims[].validity.status`; these are not trace object statuses. For
+cross-revision reuse in `standard` or `strict`, record an auditable assessment
+containing the claim, from/to revision, policy, assessor,
 target/verifier/dependency/environment/freshness comparison basis, rationale,
-and decision. Opaque fingerprints alone are insufficient. `lite` may instead
-record an explicit manual rationale.
+and decision. Opaque fingerprints alone are insufficient. A `lite` manual
+rationale must identify what was compared for the target criterion or outcome,
+verifier, relevant dependency inputs, environment, and freshness. If any
+material aspect cannot be assessed, set
+`evidence_claims[].validity.status: unknown` and run the targeted gate.
 
 A Git revision change triggers assessment, not global invalidation. Invalidate
 or downgrade only affected claims and the trace objects that depend on them;
@@ -168,7 +179,7 @@ preserve independent Item, Requirement, and Journey truth.
 
 Keep these three records distinct:
 
-- `claim_validity`: whether target-specific proof remains reusable;
+- `evidence_claims[].validity.status`: whether target-specific proof remains reusable;
 - `host_gate_status`: whether the effective current-boundary gate ran and met
   its contract;
 - `current_test_status_claim`: what may truthfully be said about current tests.
@@ -198,10 +209,12 @@ or a blocker and follow the required escalation path.
 ### Review Economy
 
 Treat required review dimensions as normative coverage. Reviewer and batch
-count are host execution choices, not a count derived from dimensions. Combine
-coverage into one batch only when the host permits it and expertise,
-independence, and complete dimension coverage remain satisfied. Preserve
-`strict` or specialist separation and all host-native review fan-out.
+count are host execution choices, not a count derived from dimensions. Preserve
+implementer-independent review for `strict`; strict independence alone does not
+force separate batches. Allow a host-permitted independent combined batch when
+its expertise and dimension coverage are sufficient. Require separate batches
+only when specialist expertise or segregation of duties cannot be satisfied by
+the combined batch, or when host-native fan-out mandates them.
 
 Every applicable review contract declares these auditable inputs: review
 `cadence` (`unit|batch|milestone|host_native`), `child_scope_policy`,
@@ -210,8 +223,9 @@ Every applicable review contract declares these auditable inputs: review
 Gate compares those declared inputs with actual parent coverage, batches, and
 receipts; declarations alone are not review evidence.
 
-With child policy `covered_at_parent`, record `pending_at_parent` before the
-parent review; never record future review as existing evidence. A Unit whose
+With child policy `covered_at_parent`, record
+`review_state: pending_at_parent` before the parent review; never record future
+review as existing evidence. A Unit whose
 closure contract requires formal review remains incomplete until an actual
 receipt covers it. Preserve every historical batch and its subject revision
 immutably. Cross-revision reuse requires `review_coverage_carry_forward` with
@@ -392,8 +406,9 @@ Before claiming a phase, feature, plan, or task is complete:
 3. Check every Requirement and canonical Acceptance Item ID line by line.
 4. Enforce Item-to-Requirement aggregation constraints; do not auto-promote a parent from partial child evidence.
 5. Confirm every `verified` target has target-specific proof. For registry
-   evidence, resolve its Evidence Claim and check artifact and `claim_validity`;
-   apply the same semantics to supported legacy inline evidence.
+   evidence, resolve its Evidence Claim and check the artifact and
+   `evidence_claims[].validity.status`; apply the same semantics to supported
+   legacy inline evidence.
 6. Check the recorded Journey applicability decision and rationale.
 7. For every applicable Journey, check Step-to-Item mappings, referenced Item status, independent path claims, expected outcome, and Journey/Step gaps.
 8. Check review findings and scope amendments are classified.
@@ -405,14 +420,16 @@ Before claiming a phase, feature, plan, or task is complete:
    residual-risk decision. Review closure remains a sub-gate.
 10. Compute effective gates, confirm required `host_gate_status`, and keep any
     `current_test_status_claim` within the host freshness contract.
-11. For every non-Goal closure packet, validate continuation: the true known
-    parent disposition, or `continuation_mode: advisory` with
-    `parent_disposition: unknown` for detached/`lite` unknown-parent work;
-    mode-appropriate authority and locator, including resolvability for
-    `durable_host`; `remaining_scope_refs` and `next_entry_conditions`; the
-    actual `execution_action`; and `stop_basis` presence only for an actual stop
-    or ending `host_boundary`, with absence otherwise. Never infer scheduling
-    authority.
+11. For every new Operational Economy non-Goal closure packet declaring
+    `schema_version: "0.4.0"`, validate continuation: the true known parent
+    disposition, or
+    `continuation_mode: advisory` with `parent_disposition: unknown` for
+    detached/`lite` unknown-parent work; mode-appropriate authority and locator,
+    including resolvability for `durable_host`; `remaining_scope_refs` and
+    `next_entry_conditions`; the actual `execution_action`; and `stop_basis`
+    presence only for an actual stop or ending `host_boundary`, with absence
+    otherwise. Preserve legacy `schema_version: "0.3.0"` closure packets without
+    continuation and never infer scheduling authority.
 12. State the actual closure status: `complete`, `complete_with_deferred_gaps`, `complete_with_residual_risk`, `incomplete`, `blocked`, or `invalid_requirements`.
 13. Call delivery `complete` only when every required Requirement and every applicable Journey is `verified`; if required gaps remain, reject `complete`.
 
@@ -445,7 +462,7 @@ Before claiming a phase, feature, plan, or task is complete:
 | Old valid claim is reported as current tests passing | Run the fresh effective host gate before making a current-test claim. |
 | Completion Gate always runs the full suite | Run the complete semantic audit plus only the suites required by effective gates at this boundary. |
 | Review dimensions become reviewer or batch count | Preserve normative coverage; let host, expertise, independence, and policy determine execution shape. |
-| Future parent review is used as Unit evidence | Record `pending_at_parent`; keep formally reviewed closure incomplete until the receipt exists. |
+| Future parent review is used as Unit evidence | Record `review_state: pending_at_parent`; keep formally reviewed closure incomplete until the receipt exists. |
 | Historical batch is rewritten onto a new revision | Keep it immutable and use assessed carry-forward, a delta batch, or controlled reopen. |
 | Unit closure becomes Goal completion | Close only the Unit and aggregate the authoritative remaining child inventory. |
 | Continuation record acts as a scheduler | Record authority, locator, and actual action, then leave invocation to the user, orchestrator, or host. |
