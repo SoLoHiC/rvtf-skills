@@ -5,6 +5,9 @@
 Use `schema_version: "0.3.0"` for the legacy inline Requirement, Acceptance
 Item, Journey, review, gap, and closure representation below. It remains valid
 without economy-plane registries, cadence fields, or continuation records.
+Artifacts created before versioning may omit `schema_version`; they are treated
+as 0.3 only when they contain no 0.4-only section or field. An omitted version
+never permits 0.4 content, and an explicit unsupported version is rejected.
 
 Use `schema_version: "0.4.0"` when creating the additive delivery-scope,
 evidence-registry, verification-policy, review-cadence, or continuation records
@@ -18,6 +21,8 @@ A 0.3 document is rejected when it carries 0.4-only top-level sections:
 `review_impact_assessments`, `review_coverage_carry_forward`, or
 `closure_packet`. Legacy 0.3 review dimensions remain a list; 0.4 review
 dimensions use the mapping representation shown below.
+The same boundary applies to nested 0.4 review-contract fields and batch host
+references; adding any such field requires `schema_version: "0.4.0"`.
 
 A 0.4 artifact may be mixed: one target may keep legacy inline evidence while a
 different target uses `evidence_ref` and `evidence_claims`. Do not give one
@@ -592,11 +597,22 @@ must resolve and be acyclic. A parent's authoritative
 `required_child_scope_refs` inventory has a revision, agrees with each child's
 `required_for_parent`, and is the only path for closure aggregation.
 
+In 0.4 standard and strict artifacts, every non-root scope explicitly records
+boolean `required_for_parent`. Every scope that is an actual parent explicitly
+records `required_child_inventory_revision` and
+`required_child_scope_refs`, including an empty list when it currently has no
+required children. This explicit hierarchy floor does not extend to 0.3 or
+0.4 lite artifacts.
+
 A closed parent may aggregate only required children with `complete`,
 `complete_with_deferred_gaps`, or `complete_with_residual_risk`. Removing a
 child requires an accepted scope amendment and an updated inventory; a stale
 `required_for_parent: true` is not enough. `host_status` records host lifecycle
 truth separately and cannot override a blocked or incomplete RVTF disposition.
+A parent declared plain `complete` cannot hide a required child whose current
+disposition is `complete_with_deferred_gaps` or
+`complete_with_residual_risk`; the parent must preserve the applicable
+qualified closure truth.
 
 An ordinary child that was never required may use `required_for_parent: false`
 without inventing history. When the artifact explicitly claims that a formerly
@@ -742,6 +758,14 @@ revision; unused, historical, failed, wrong-boundary, and stale receipts do not
 prove current tests. `freshness` is a host-policy value, not an RVTF enum: the
 receipt must exactly match the effective required gate's declared value (for
 example, `pre_merge_current`).
+
+This match has a non-empty metadata floor. Each required policy gate names
+`gate_ref`, `lifecycle_boundary`, and `freshness`; each satisfied closure entry
+names `gate_ref`, `receipt_ref`, `status: satisfied`, and `subject_revision`;
+and the referenced receipt names matching gate, boundary, freshness, revision,
+`executed_at`, and `command_signature`, with `status: passed`. A passed
+`current_test_status_claim` is valid only across this complete chain. Two
+missing values never count as equal metadata.
 
 ## Additive 0.4 Verification Policy
 
@@ -892,6 +916,11 @@ identifies the user or external orchestrator that retains control.
 Use `stop_basis` only, and always, for an actual `stop` or `host_boundary`.
 Continuation records truth and resumption capability; RVTF is not a scheduler
 and never invokes the next workflow merely because the parent remains active.
+`goal_complete` requires a known closed parent or Goal and no remaining scope
+references. `all_remaining_work_blocked` requires a non-empty list of resolved
+blocked scopes and a blocked or incomplete parent. `owner_requested_stop`,
+`host_runtime_boundary`, and `host_command_completed` record why execution
+paused; they do not change the recorded parent disposition.
 
 ## Minimum Additive Fields By Mode
 

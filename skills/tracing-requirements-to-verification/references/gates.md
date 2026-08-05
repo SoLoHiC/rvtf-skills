@@ -100,6 +100,11 @@ Before using child or group progress in a closure decision:
 - Resolve every `parent_scope_ref`; reject cycles and confirm the reverse parent
   relation agrees with `required_child_scope_refs` and
   `required_for_parent`.
+- In 0.4 standard/strict artifacts, require an explicit boolean
+  `required_for_parent` on every non-root scope. Require every actual parent to
+  carry both `required_child_inventory_revision` and
+  `required_child_scope_refs`, even when that authoritative list is empty.
+  Do not extend this lower bound to 0.3 or 0.4 lite artifacts.
 - Require a `required_child_inventory_revision` for every authoritative child
   inventory. An empty plan list or completed execution batch is not an
   inventory revision.
@@ -107,6 +112,9 @@ Before using child or group progress in a closure decision:
   orthogonal organization. Group completion never closes a member or parent.
 - Aggregate a parent only from required children in its current inventory.
   `blocked` and `incomplete` children cannot support a closed parent.
+  A plain `complete` parent also cannot hide a required child with qualified
+  deferred-gap or residual-risk closure; preserve that qualification at the
+  parent.
 - Do not invent history for a child that was always optional. When removal from
   required scope is explicitly claimed, require `required_inventory_exclusion`
   to resolve an accepted amendment naming the parent and removed child, and
@@ -214,6 +222,11 @@ Before selecting commands for a boundary:
   must be the one referenced by the satisfied effective closure gate. Treat
   `freshness` as a host-defined policy value and require exact policy/receipt
   equality rather than an RVTF-owned token list.
+- Enforce a non-empty metadata floor before matching: the required policy gate
+  has gate, boundary, and freshness; the satisfied closure entry has gate,
+  receipt, satisfied status, and revision; and its passed receipt has matching
+  gate, boundary, freshness, revision, execution time, and command signature.
+  Missing metadata on both sides is invalid, not a match.
 - Keep a failed required gate visible. Isolate its first real failure, use the
   applicable retry/quarantine/escalation policy, and never rerun indefinitely
   for an accidental pass.
@@ -346,6 +359,11 @@ Before ending a new 0.4 non-Goal closure:
   canonical `stop_basis` only, and always, for an actual stop or host boundary.
 - Keep blocked remaining work and its owner/entry conditions explicit. A host
   runtime boundary does not change parent disposition.
+- Accept `goal_complete` only with a known closed parent or Goal and no
+  remaining scopes. Accept `all_remaining_work_blocked` only with a non-empty
+  set of resolved blocked scopes and a blocked or incomplete parent.
+  Owner-requested, runtime-boundary, and command-completed stops explain the
+  pause but do not promote or otherwise rewrite parent disposition.
 - Record continuation capability only. RVTF never schedules the next command,
   workflow, story, reviewer, or session automatically.
 

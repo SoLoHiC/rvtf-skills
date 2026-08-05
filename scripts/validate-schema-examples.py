@@ -66,6 +66,14 @@ V04_ONLY_TOP_LEVEL_FIELDS = {
     "review_coverage_carry_forward",
     "closure_packet",
 }
+V04_ONLY_REVIEW_CONTRACT_FIELDS = {
+    "cadence",
+    "child_scope_policy",
+    "covered_child_scope_refs",
+    "batch_combination_policy",
+    "host_native_required_batches",
+    "independence",
+}
 
 
 @dataclass(frozen=True)
@@ -108,6 +116,53 @@ def _mapping(value: Any) -> Mapping[str, Any]:
 
 def _is_one_of(value: Any, choices: set[str]) -> bool:
     return isinstance(value, str) and value in choices
+
+
+def _nonempty_string(value: Any) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
+def _present(value: Any) -> bool:
+    return value is not None and value != ""
+
+
+def _has_v04_only_content(document: Mapping[str, Any]) -> bool:
+    if any(field in document for field in V04_ONLY_TOP_LEVEL_FIELDS):
+        return True
+    contract = _mapping(document.get("review_contract"))
+    if any(field in contract for field in V04_ONLY_REVIEW_CONTRACT_FIELDS):
+        return True
+    if isinstance(contract.get("dimensions"), Mapping):
+        return True
+    return any("host_batch_ref" in batch for batch in _records(document, "review_batches"))
+
+
+def _effective_schema_version(document: Mapping[str, Any]) -> Any:
+    if "schema_version" not in document:
+        return None if _has_v04_only_content(document) else "0.3.0"
+    return document.get("schema_version")
+
+
+def _required_host_gate_complete(gate: Mapping[str, Any]) -> bool:
+    return all(_nonempty_string(gate.get(field)) for field in ("gate_ref", "lifecycle_boundary", "freshness"))
+
+
+def _satisfied_host_gate_complete(status: Mapping[str, Any]) -> bool:
+    return (
+        status.get("status") == "satisfied"
+        and all(_nonempty_string(status.get(field)) for field in ("gate_ref", "receipt_ref", "subject_revision"))
+    )
+
+
+def _host_gate_receipt_complete(receipt: Mapping[str, Any]) -> bool:
+    return (
+        receipt.get("status") == "passed"
+        and all(
+            _nonempty_string(receipt.get(field))
+            for field in ("gate_ref", "lifecycle_boundary", "freshness", "subject_revision", "command_signature")
+        )
+        and _present(receipt.get("executed_at"))
+    )
 
 
 def _lookup(index: Mapping[str, Mapping[str, Any]], reference: Any) -> Mapping[str, Any] | None:
@@ -190,8 +245,17 @@ def validate_document_shape(document: Any) -> list[Diagnostic]:
     if not isinstance(document, Mapping):
         return [_diag("document-not-mapping", "$", "the YAML document must be a mapping")]
 
-    version = document.get("schema_version")
-    if not _is_one_of(version, SUPPORTED_SCHEMA_VERSIONS):
+    declared_version = document.get("schema_version")
+    version = _effective_schema_version(document)
+    if "schema_version" not in document and version is None:
+        diagnostics.append(
+            _diag(
+                "unversioned-schema-has-v04-sections",
+                "schema_version",
+                "an unversioned artifact is legacy only when it contains no 0.4-only section or field",
+            )
+        )
+    elif "schema_version" in document and not _is_one_of(declared_version, SUPPORTED_SCHEMA_VERSIONS):
         diagnostics.append(
             _diag(
                 "unsupported-schema-version",
@@ -200,7 +264,7 @@ def validate_document_shape(document: Any) -> list[Diagnostic]:
             )
         )
 
-    if version == "0.3.0":
+    if declared_version == "0.3.0":
         incompatible = sorted(field for field in V04_ONLY_TOP_LEVEL_FIELDS if field in document)
         if incompatible:
             diagnostics.append(
@@ -545,6 +609,17 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
     scopes = _records(document, "delivery_scopes")
     scope_index = _index(scopes, "scope_ref")
     amendments = _index(_records(document, "scope_amendments"), "id")
+    mode = _mapping(document.get("scope")).get("mode")
+    enforce_explicit_hierarchy = (
+        _effective_schema_version(document) == "0.4.0"
+        and _is_one_of(mode, {"standard", "strict"})
+        and bool(scopes)
+    )
+    actual_parent_refs = {
+        scope.get("parent_scope_ref")
+        for scope in scopes
+        if isinstance(scope.get("parent_scope_ref"), str)
+    }
 
     for index, scope in enumerate(scopes):
         scope_ref = scope.get("scope_ref")
@@ -563,6 +638,14 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
             )
 
         parent_ref = scope.get("parent_scope_ref")
+        if enforce_explicit_hierarchy and parent_ref is not None and "required_for_parent" not in scope:
+            diagnostics.append(
+                _diag(
+                    "missing-required-for-parent",
+                    f"{path}.required_for_parent",
+                    "every non-root 0.4 standard/strict scope must declare boolean required_for_parent",
+                )
+            )
         if parent_ref is not None and _lookup(scope_index, parent_ref) is None:
             diagnostics.append(
                 _diag(
@@ -571,6 +654,24 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                     f"parent scope {parent_ref!r} does not resolve",
                 )
             )
+
+        if enforce_explicit_hierarchy and isinstance(scope_ref, str) and scope_ref in actual_parent_refs:
+            if "required_child_scope_refs" not in scope:
+                diagnostics.append(
+                    _diag(
+                        "missing-required-child-inventory",
+                        f"{path}.required_child_scope_refs",
+                        "every actual parent requires an explicit required-child inventory, which may be empty",
+                    )
+                )
+            if not _nonempty_string(scope.get("required_child_inventory_revision")):
+                diagnostics.append(
+                    _diag(
+                        "missing-required-child-inventory-revision",
+                        f"{path}.required_child_inventory_revision",
+                        "every actual parent requires a revision for its authoritative child inventory",
+                    )
+                )
 
         if "required_child_scope_refs" in scope:
             children = scope.get("required_child_scope_refs")
@@ -583,8 +684,8 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                     )
                 )
                 continue
-            if not isinstance(scope.get("required_child_inventory_revision"), str) or not scope.get(
-                "required_child_inventory_revision"
+            if not enforce_explicit_hierarchy and not _nonempty_string(
+                scope.get("required_child_inventory_revision")
             ):
                 diagnostics.append(
                     _diag(
@@ -615,7 +716,9 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                             f"child {child_ref!r} does not point back to {scope_ref!r}",
                         )
                     )
-                if child.get("required_for_parent") is not True:
+                if child.get("required_for_parent") is not True and not (
+                    enforce_explicit_hierarchy and "required_for_parent" not in child
+                ):
                     diagnostics.append(
                         _diag(
                             "required-child-flag-mismatch",
@@ -631,6 +734,17 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                             "blocked-required-child-closes-parent",
                             child_path,
                             f"closed parent {scope_ref!r} has required child {child_ref!r} with disposition {child.get('disposition')!r}",
+                        )
+                    )
+                if scope.get("disposition") == "complete" and _is_one_of(
+                    child.get("disposition"),
+                    {"complete_with_deferred_gaps", "complete_with_residual_risk"},
+                ):
+                    diagnostics.append(
+                        _diag(
+                            "plain-parent-hides-qualified-required-child",
+                            child_path,
+                            "a plain complete parent cannot hide a qualified required-child disposition",
                         )
                     )
 
@@ -1172,6 +1286,15 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
         for gate in _list(policy.get("host_native_required_gates"))
         if isinstance(gate, Mapping) and isinstance(gate.get("gate_ref"), str)
     }
+    for index, gate in enumerate(_list(policy.get("host_native_required_gates"))):
+        if isinstance(gate, Mapping) and not _required_host_gate_complete(gate):
+            diagnostics.append(
+                _diag(
+                    "incomplete-required-host-gate-contract",
+                    f"verification_policy.host_native_required_gates[{index}]",
+                    "required host gates need non-empty gate_ref, lifecycle_boundary, and freshness",
+                )
+            )
     receipts = _index(_records(document, "host_gate_receipts"), "id")
     gate_status_records = _list(closure.get("host_gate_status"))
     gate_status = {
@@ -1195,6 +1318,15 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
         if not isinstance(status, Mapping) or status.get("status") != "satisfied":
             continue
         path = f"closure_packet.host_gate_status[{index}]"
+        if not _satisfied_host_gate_complete(status):
+            diagnostics.append(
+                _diag(
+                    "incomplete-satisfied-host-gate",
+                    path,
+                    "satisfied host gates need gate_ref, receipt_ref, subject_revision, and satisfied status",
+                )
+            )
+            continue
         required = _lookup(required_gates, status.get("gate_ref"))
         receipt = _lookup(receipts, status.get("receipt_ref"))
         if receipt is None:
@@ -1203,6 +1335,15 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
         if required is None:
             diagnostics.append(
                 _diag("unsupported-host-gate-satisfaction", f"{path}.gate_ref", "satisfied gate is not in the effective host floor")
+            )
+            continue
+        if not _host_gate_receipt_complete(receipt):
+            diagnostics.append(
+                _diag(
+                    "incomplete-host-gate-receipt",
+                    f"{path}.receipt_ref",
+                    "used host receipts need gate, boundary, freshness, revision, execution metadata, and passed status",
+                )
             )
             continue
         matches = (
@@ -1236,7 +1377,9 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
         claim_is_current = (
             status is not None
             and required is not None
-            and receipt.get("status") == "passed"
+            and _required_host_gate_complete(required)
+            and _satisfied_host_gate_complete(status)
+            and _host_gate_receipt_complete(receipt)
             and receipt.get("gate_ref") == status.get("gate_ref")
             and receipt.get("subject_revision")
             == status.get("subject_revision")
@@ -2053,6 +2196,43 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
                     "actual stop or host boundary requires a canonical stop_basis",
                 )
             )
+        elif stop_basis == "goal_complete" and not (
+            parent is not None
+            and _is_one_of(parent.get("disposition"), CLOSED_DISPOSITIONS)
+            and isinstance(remaining, list)
+            and not remaining
+        ):
+            diagnostics.append(
+                _diag(
+                    "inconsistent-goal-complete-stop-basis",
+                    "closure_packet.continuation.stop_basis",
+                    "goal_complete requires a known completed parent or Goal and no remaining scopes",
+                )
+            )
+        elif stop_basis == "all_remaining_work_blocked":
+            remaining_records = [
+                _lookup(scopes, remaining_ref)
+                for remaining_ref in _string_list(remaining)
+            ]
+            all_blocked = (
+                isinstance(remaining, list)
+                and bool(remaining)
+                and len(remaining_records) == len(remaining)
+                and all(
+                    remaining_scope is not None and remaining_scope.get("disposition") == "blocked"
+                    for remaining_scope in remaining_records
+                )
+                and parent is not None
+                and _is_one_of(parent.get("disposition"), {"blocked", "incomplete"})
+            )
+            if not all_blocked:
+                diagnostics.append(
+                    _diag(
+                        "inconsistent-all-remaining-blocked-stop-basis",
+                        "closure_packet.continuation.stop_basis",
+                        "all_remaining_work_blocked requires non-empty resolved blocked scopes and blocked/incomplete parent truth",
+                    )
+                )
     elif stop_basis is not None:
         diagnostics.append(
             _diag(
@@ -2234,6 +2414,79 @@ def run_mutation_contract(root: Path) -> int:
         document["verification_policy"]["host_native_required_gates"][0]["freshness"] = "pre_merge_current"
         document["host_gate_receipts"][0]["freshness"] = "pre_merge_current"
 
+    def missing_paired_host_boundary(document: dict[str, Any]) -> None:
+        document["verification_policy"]["host_native_required_gates"][0].pop("lifecycle_boundary")
+        document["host_gate_receipts"][0].pop("lifecycle_boundary")
+
+    def missing_paired_host_freshness(document: dict[str, Any]) -> None:
+        document["verification_policy"]["host_native_required_gates"][0].pop("freshness")
+        document["host_gate_receipts"][0].pop("freshness")
+
+    def missing_host_execution_metadata(document: dict[str, Any]) -> None:
+        document["host_gate_receipts"][0].pop("executed_at")
+        document["host_gate_receipts"][0].pop("command_signature")
+
+    def missing_child_requiredness(document: dict[str, Any]) -> None:
+        document["delivery_scopes"][3].pop("required_for_parent")
+
+    def hidden_child_by_requiredness_and_inventory(document: dict[str, Any]) -> None:
+        child = document["delivery_scopes"][3]
+        child.pop("required_for_parent")
+        document["delivery_scopes"][1]["required_child_scope_refs"].remove(child["scope_ref"])
+
+    def missing_parent_inventory(document: dict[str, Any]) -> None:
+        parent = document["delivery_scopes"][0]
+        parent.pop("required_child_inventory_revision")
+        parent.pop("required_child_scope_refs")
+
+    def add_qualified_child(document: dict[str, Any], disposition: str) -> None:
+        parent_ref = f"goal:qualified-{disposition}"
+        child_ref = f"unit:qualified-{disposition}"
+        document["delivery_scopes"].extend(
+            [
+                {
+                    "scope_ref": parent_ref,
+                    "scope_kind": "goal",
+                    "required_child_inventory_revision": "sha256:qualified-inventory-v1",
+                    "required_child_scope_refs": [child_ref],
+                    "disposition": "complete",
+                },
+                {
+                    "scope_ref": child_ref,
+                    "scope_kind": "unit",
+                    "parent_scope_ref": parent_ref,
+                    "required_for_parent": True,
+                    "disposition": disposition,
+                },
+            ]
+        )
+
+    def plain_parent_with_deferred_child(document: dict[str, Any]) -> None:
+        add_qualified_child(document, "complete_with_deferred_gaps")
+
+    def plain_parent_with_residual_child(document: dict[str, Any]) -> None:
+        add_qualified_child(document, "complete_with_residual_risk")
+
+    def inconsistent_goal_complete_stop(document: dict[str, Any]) -> None:
+        document["closure_packet"]["continuation"]["stop_basis"] = "goal_complete"
+
+    def valid_goal_complete_stop(document: dict[str, Any]) -> None:
+        scopes = document["delivery_scopes"]
+        scopes[1]["disposition"] = "complete"
+        scopes[3]["disposition"] = "complete"
+        continuation = document["closure_packet"]["continuation"]
+        continuation["parent_disposition"] = "complete"
+        continuation["remaining_scope_refs"] = []
+        continuation["next_entry_conditions"] = []
+        continuation["stop_basis"] = "goal_complete"
+
+    def inconsistent_all_remaining_blocked_stop(document: dict[str, Any]) -> None:
+        document["closure_packet"]["continuation"]["stop_basis"] = "all_remaining_work_blocked"
+
+    def valid_all_remaining_blocked_stop(document: dict[str, Any]) -> None:
+        document["delivery_scopes"][3]["disposition"] = "blocked"
+        document["closure_packet"]["continuation"]["stop_basis"] = "all_remaining_work_blocked"
+
     def separate_assignment_reuses_batch(document: dict[str, Any]) -> None:
         contract = document["review_contract"]
         contract["batch_combination_policy"] = "separate_required"
@@ -2308,6 +2561,9 @@ def run_mutation_contract(root: Path) -> int:
 
     def inject_v04_section_into_legacy(document: dict[str, Any]) -> None:
         document["verification_policy"] = {}
+
+    def declare_unsupported_legacy_version(document: dict[str, Any]) -> None:
+        document["schema_version"] = "0.5.0"
 
     cases = (
         MutationCase(
@@ -2386,6 +2642,75 @@ def run_mutation_contract(root: Path) -> int:
         ),
         MutationCase("host-defined-current-freshness", "v04", host_defined_current_freshness, ()),
         MutationCase(
+            "missing-paired-host-boundary",
+            "v04",
+            missing_paired_host_boundary,
+            (
+                "incomplete-host-gate-receipt",
+                "incomplete-required-host-gate-contract",
+                "invalid-current-test-status-claim",
+            ),
+        ),
+        MutationCase(
+            "missing-paired-host-freshness",
+            "v04",
+            missing_paired_host_freshness,
+            (
+                "incomplete-host-gate-receipt",
+                "incomplete-required-host-gate-contract",
+                "invalid-current-test-status-claim",
+            ),
+        ),
+        MutationCase(
+            "missing-host-execution-metadata",
+            "v04",
+            missing_host_execution_metadata,
+            ("incomplete-host-gate-receipt", "invalid-current-test-status-claim"),
+        ),
+        MutationCase("missing-child-requiredness", "v04", missing_child_requiredness, ("missing-required-for-parent",)),
+        MutationCase(
+            "hidden-child-by-requiredness-and-inventory",
+            "v04",
+            hidden_child_by_requiredness_and_inventory,
+            ("missing-required-for-parent",),
+        ),
+        MutationCase(
+            "missing-parent-inventory",
+            "v04",
+            missing_parent_inventory,
+            (
+                "missing-required-child-inventory",
+                "missing-required-child-inventory-revision",
+                "required-child-missing-from-inventory",
+            ),
+        ),
+        MutationCase(
+            "plain-parent-with-deferred-child",
+            "v04",
+            plain_parent_with_deferred_child,
+            ("plain-parent-hides-qualified-required-child",),
+        ),
+        MutationCase(
+            "plain-parent-with-residual-child",
+            "v04",
+            plain_parent_with_residual_child,
+            ("plain-parent-hides-qualified-required-child",),
+        ),
+        MutationCase(
+            "inconsistent-goal-complete-stop",
+            "v04",
+            inconsistent_goal_complete_stop,
+            ("inconsistent-goal-complete-stop-basis",),
+        ),
+        MutationCase("valid-goal-complete-stop", "v04", valid_goal_complete_stop, ()),
+        MutationCase(
+            "inconsistent-all-remaining-blocked-stop",
+            "v04",
+            inconsistent_all_remaining_blocked_stop,
+            ("inconsistent-all-remaining-blocked-stop-basis",),
+        ),
+        MutationCase("valid-all-remaining-blocked-stop", "v04", valid_all_remaining_blocked_stop, ()),
+        MutationCase(
             "separate-assignment-reuses-batch",
             "v04",
             separate_assignment_reuses_batch,
@@ -2432,7 +2757,13 @@ def run_mutation_contract(root: Path) -> int:
             "inject-v04-section-into-legacy",
             "legacy",
             inject_v04_section_into_legacy,
-            ("legacy-schema-has-v04-sections",),
+            ("unversioned-schema-has-v04-sections",),
+        ),
+        MutationCase(
+            "declare-unsupported-legacy-version",
+            "legacy",
+            declare_unsupported_legacy_version,
+            ("unsupported-schema-version",),
         ),
     )
 
