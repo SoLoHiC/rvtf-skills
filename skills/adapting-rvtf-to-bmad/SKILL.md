@@ -29,7 +29,7 @@ detailed fields and algorithms; this adapter only maps host boundaries.
 - Use `goal`, `milestone`, and `unit` only for containment. Use
   `delivery_groups` with `execution_batch`, `verification_batch`, or
   `review_batch` for execution, verification, and review grouping. A Build run,
-  group, or Story Unit completion never auto-closes a parent Epic/release.
+  group, or Unit completion never auto-closes a parent Epic/release.
 - Effective gates are the union of host-native mandatory gates and RVTF-required
   gates. Reused `evidence_claims[].validity.status: valid` never removes a
   fresh/full host gate or claims current tests pass; keep `host_gate_status` and
@@ -45,28 +45,33 @@ detailed fields and algorithms; this adapter only maps host boundaries.
   record `continuation_mode: durable_host|artifact_only|advisory`, locator,
   remaining scopes, and actual
   `execution_action: continue|stop|await_owner|host_boundary`. RVTF never invokes
-  another Build or Story and never overrides user/orchestrator control.
-- BMAD `done`, `shipped`, `archived`, or `override` remains `host_status`; RVTF
-  closure follows trace truth.
+  another Build, Story, or change scope and never overrides user/orchestrator
+  control.
+- Any BMAD Build or Story terminal outcome, including `done`, remains
+  `host_status`; RVTF closure follows trace truth.
 
 ## Host Scope, Gate, And Review Mapping
 
 - Map an Epic or SPEC scope to a Goal or Milestone according to its actual
-  closure boundary. Map Story to Unit. A Build run is an execution record
-  attached to that Story, not a new Build Unit. Story Acceptance Criteria remain
-  the canonical Acceptance Items.
+  closure boundary. For a Story-backed run, map Story to Unit and attach the
+  Build execution record to that Unit; Story Acceptance Criteria remain the
+  canonical Acceptance Items. For a direct free-form intent or standalone spec
+  run, map its single actual change scope to an appropriate Unit without
+  fabricating Story ownership. A Build run never becomes a new Build Unit.
 - Every Build/build-auto run's review and triage is host-native mandatory and
   cannot be skipped by Epic/Milestone parent coverage or evidence reuse.
 - Map adversarial, edge-case, and verification-gap review to dimensions. Do not
   multiply them into batches unless actual host roles, specialist risk, strict
   independence, or segregation of duties requires fan-out.
-- One build-auto invocation handles one Story/run. Story closure never closes an
-  Epic/release; the orchestrator owns backlog order, next Story selection, and
+- One Build/build-auto invocation handles one Story-backed run or one direct
+  change scope. Story or Unit closure never closes an Epic/release; the
+  orchestrator owns backlog order, next Story/change-scope selection, and
   blocked routing.
 - Derive continuation from the Build spec terminal status, deferred findings,
   and one orchestrator authority/reference. At the command boundary it is
   normally `artifact_only` or `advisory` with `execution_action: stop` or
-  `host_boundary`; return control rather than scheduling the next Story.
+  `host_boundary`; return control rather than scheduling the next Story or
+  change scope.
 - BMAD `done` changes `host_status` only and never promotes a parent RVTF scope
   to complete.
 
@@ -76,7 +81,7 @@ detailed fields and algorithms; this adapter only maps host boundaries.
 | --- | --- |
 | Spec kernel | Store capability tree, Requirement IDs, canonical Acceptance Items, Journey applicability, required Journeys and Steps, verification methods, validity decisions, constraints, non-goals, and review contract when formal review can affect closure. |
 | Story | Treat a Story as a candidate Journey source, not an automatic Journey. Map Story acceptance criteria to canonical Acceptance Items and decide Journey applicability from the actual actor-goal path. |
-| Build-auto Tasks & Acceptance | Attach the Build execution record to its Story Unit and map its work to Requirement, Acceptance Item, Journey, and Journey Step IDs. Use the I/O & Edge-Case Matrix to expose Item criteria and required alternative or recovery Steps without copying Item state. |
+| Build/build-auto Tasks & Acceptance | For Story-backed work, attach the Build execution record to its Story Unit. For direct intent or a standalone spec, attach it to the one appropriate Unit representing the actual change scope; never invent a Story. Map that Unit to Requirement, Acceptance Item, Journey, and Journey Step IDs. Use the I/O & Edge-Case Matrix to expose Item criteria and required alternative or recovery Steps without copying Item state. |
 | UAT and edge-case execution | Record target-specific item evidence and, when the executed flow proves ordered Steps and expected outcome, explicit path evidence with covered Journey Step IDs. |
 | Append-only memlog | Record Item, Requirement, and Journey status changes; item/path evidence; Journey applicability; review lifecycle; finding classifications; amendment decisions; and gaps as append-only events. |
 | Review verification gap | Classify each gap against requirement ID, evidence quality, adoption, regression, verification method, or scope amendment. |
@@ -100,7 +105,7 @@ finding set.
 
 ## Completion Rule
 
-BMAD can challenge whether the story stayed intact. RVTF defines the rows and evidence BMAD should challenge.
+BMAD can challenge whether the Story or direct change scope stayed intact. RVTF defines the rows and evidence BMAD should challenge.
 
 Attach this mapping to the relevant Story or build task while preserving BMAD's
 own grouping:

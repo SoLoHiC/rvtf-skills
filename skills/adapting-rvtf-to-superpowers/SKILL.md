@@ -49,8 +49,8 @@ detailed fields and algorithms; this adapter only maps host boundaries.
   explicitly unknown locator as allowed by the mode, remaining scopes, and the
   actual `execution_action: continue|stop|await_owner|host_boundary`. RVTF never
   invokes another command or overrides user/orchestrator control.
-- Superpowers `done`, `shipped`, `archived`, or `override` remains
-  `host_status`; derive RVTF closure only from trace truth.
+- Any Superpowers host lifecycle outcome, including the branch-finishing
+  decision, remains `host_status`; derive RVTF closure only from trace truth.
 
 ## Mapping
 

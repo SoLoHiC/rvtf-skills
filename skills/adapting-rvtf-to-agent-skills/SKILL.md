@@ -47,7 +47,7 @@ detailed fields and algorithms; this adapter only maps host boundaries.
   `execution_action: continue|stop|await_owner|host_boundary`. RVTF never invokes
   `/build`, `/review`, `/ship`, or a next task and never overrides the user or
   orchestrator.
-- Agent Skills `done`, `shipped`, `archived`, or `override` remains
+- Any Agent Skills `/build`, `/review`, or `/ship` lifecycle outcome remains
   `host_status`; RVTF parent closure follows trace truth.
 
 ## Host Scope And Gate Mapping
@@ -57,8 +57,9 @@ detailed fields and algorithms; this adapter only maps host boundaries.
   when one Task truly contains multiple independently closable increments may
   that Task be a Milestone and its increments Units; record the rationale.
 - Focused RED/GREEN checks and increment checks are `worker` tier. Task
-  completion still runs the host-required full suite, build, or E2E gate. Shared
-  valid evidence may avoid an extra RVTF rerun but not that host task gate.
+  completion still runs all host-required task gates: the full test suite and
+  the build, plus E2E when required. Shared valid evidence may avoid an extra
+  RVTF rerun but cannot skip any of these host-native gates.
 - Place Journey evidence at the smallest scope that can claim the actor-goal
   outcome. Compose it at a parent only when the Journey truly crosses slices.
 - `/review` pre-merge review is host-native mandatory and cannot be skipped by

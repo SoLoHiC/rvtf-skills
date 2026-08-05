@@ -46,7 +46,7 @@ detailed fields and algorithms; this adapter only maps host boundaries.
   remaining scopes, and actual
   `execution_action: continue|stop|await_owner|host_boundary`. RVTF never invokes
   a GSD command/PLAN or overrides user/orchestrator control.
-- GSD `done`, `shipped`, `archived`, `override`, or `override_closeout` remains
+- Any GSD host lifecycle outcome, including `override_closeout`, remains
   `host_status`; RVTF closure is derived independently.
 
 ## Host Hierarchy And Grouping
@@ -64,10 +64,11 @@ detailed fields and algorithms; this adapter only maps host boundaries.
 
 ## Host Review And Continuation
 
-- Preserve separate lifecycles and subjects for the plan checker,
-  capability-dependent execute code review with its host advisory/blocking
-  semantics, and PR ship review. Add another formal RVTF review only when the
-  actual risk contract requires it.
+- Preserve the pinned split: the plan checker retains its host gate;
+  capability-dependent execute-phase code review is advisory, and its failure
+  does not block execution at this revision; PR review remains host-directed.
+  Only separately declared blocking hooks or contracts may block. Add another
+  formal RVTF review only when the actual risk contract requires it.
 - GSD goal-backward verification remains authoritative. Phase closure records
   the unresolved truth of the parent Goal rather than promoting it to complete.
 - Derive `durable_host` continuation from `.planning` `STATE`, `ROADMAP`, `PLAN`,
