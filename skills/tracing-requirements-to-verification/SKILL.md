@@ -124,12 +124,19 @@ Contract with `parent_scope_ref`, `parent_disposition`, `continuation_mode`
 (`durable_host|artifact_only|advisory`), `authority_ref`, `resume_locator`,
 `remaining_scope_refs`, next entry conditions, and the actual
 `execution_action` (`continue|stop|await_owner|host_boundary`). Record
-`stop_basis` only when `execution_action: stop` is the action actually taken.
+`stop_basis` only when the current execution actually ends through `stop` or an
+explicit `host_boundary`; omit it for actions that do not stop at that point.
 
-Detached or `lite` work may use `advisory` continuation with an unknown parent,
-but must not invent parent closure. RVTF records continuation and ownership; it
-never schedules or invokes the next host workflow, bypasses a host boundary, or
-overrides user or orchestrator authority.
+Apply mode-specific authority and locator rules: `durable_host` requires a
+resolvable `authority_ref` and `resume_locator`; `artifact_only` locates the
+durable continuation artifact and names its responsible authority without
+claiming a scheduler; `advisory` names the controlling user or orchestrator and
+uses an explicit unknown locator when none exists. Detached or `lite` work with
+an unknown parent must still record advisory continuation with
+`parent_scope_ref: unknown` and `parent_disposition: unknown`; it must not invent
+parent closure. RVTF records continuation and ownership; it never schedules or
+invokes the next host workflow, bypasses a host boundary, or overrides user or
+orchestrator authority.
 
 If an iteration changes no implementation, Evidence Claim, review finding,
 gap, or disposition, emit a non-blocking operational-economy warning. Select a
@@ -195,6 +202,13 @@ count are host execution choices, not a count derived from dimensions. Combine
 coverage into one batch only when the host permits it and expertise,
 independence, and complete dimension coverage remain satisfied. Preserve
 `strict` or specialist separation and all host-native review fan-out.
+
+Every applicable review contract declares these auditable inputs: review
+`cadence` (`unit|batch|milestone|host_native`), `child_scope_policy`,
+`covered_child_scope_refs` when the policy is `covered_at_parent`,
+`batch_combination_policy`, and `host_native_required_batches`. The Completion
+Gate compares those declared inputs with actual parent coverage, batches, and
+receipts; declarations alone are not review evidence.
 
 With child policy `covered_at_parent`, record `pending_at_parent` before the
 parent review; never record future review as existing evidence. A Unit whose
@@ -383,15 +397,22 @@ Before claiming a phase, feature, plan, or task is complete:
 6. Check the recorded Journey applicability decision and rationale.
 7. For every applicable Journey, check Step-to-Item mappings, referenced Item status, independent path claims, expected outcome, and Journey/Step gaps.
 8. Check review findings and scope amendments are classified.
-9. If bounded review governance applies, confirm actual required batch coverage,
-   valid parent coverage or cross-revision carry-forward, and review closure or
-   a controlled reopen, deferral, block, or residual-risk decision. Review
-   closure remains a sub-gate.
+9. If bounded review governance applies, audit the contract's `cadence`,
+   `child_scope_policy`, `covered_child_scope_refs`,
+   `batch_combination_policy`, and `host_native_required_batches` against actual
+   required batch coverage, valid parent coverage or cross-revision
+   carry-forward, and review closure or a controlled reopen, deferral, block, or
+   residual-risk decision. Review closure remains a sub-gate.
 10. Compute effective gates, confirm required `host_gate_status`, and keep any
     `current_test_status_claim` within the host freshness contract.
-11. For a closed child under a known parent, check that continuation records the
-    true parent disposition, remaining scope, authority, resume locator, and
-    actual execution action without assuming scheduling authority.
+11. For every non-Goal closure packet, validate continuation: the true known
+    parent disposition, or `continuation_mode: advisory` with
+    `parent_disposition: unknown` for detached/`lite` unknown-parent work;
+    mode-appropriate authority and locator, including resolvability for
+    `durable_host`; `remaining_scope_refs` and `next_entry_conditions`; the
+    actual `execution_action`; and `stop_basis` presence only for an actual stop
+    or ending `host_boundary`, with absence otherwise. Never infer scheduling
+    authority.
 12. State the actual closure status: `complete`, `complete_with_deferred_gaps`, `complete_with_residual_risk`, `incomplete`, `blocked`, or `invalid_requirements`.
 13. Call delivery `complete` only when every required Requirement and every applicable Journey is `verified`; if required gaps remain, reject `complete`.
 
