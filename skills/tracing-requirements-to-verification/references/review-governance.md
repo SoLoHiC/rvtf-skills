@@ -241,9 +241,11 @@ At closure, match each `expected_batches[].host_kind` and assigned `dimensions`
 only against complete batches or valid carry-forward named by the current
 closure. A historical batch with the same host kind is not an assignment
 receipt. `separate_required` assignments consume distinct source batches;
-`combined_allowed` may reuse one qualified combined batch. Evaluate
-independence across required dimensions only, so a supplemental implementer
-self-check does not invalidate otherwise independent required coverage.
+the validator finds a complete matching across all eligible accepted providers
+rather than greedily consuming list order. `combined_allowed` may reuse one
+qualified combined batch. Evaluate independence across required dimensions
+only, so a supplemental implementer self-check does not invalidate otherwise
+independent required coverage.
 
 ### Review Epoch
 

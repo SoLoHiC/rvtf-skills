@@ -211,7 +211,9 @@ Before selecting commands for a boundary:
 - Keep claim validity, `host_gate_status`, and `current_test_status_claim`
   separate. Only a matching passed receipt at the current revision and
   lifecycle boundary supports the latter two facts, and the current-test receipt
-  must be the one referenced by the satisfied effective closure gate.
+  must be the one referenced by the satisfied effective closure gate. Treat
+  `freshness` as a host-defined policy value and require exact policy/receipt
+  equality rather than an RVTF-owned token list.
 - Keep a failed required gate visible. Isolate its first real failure, use the
   applicable retry/quarantine/escalation policy, and never rerun indefinitely
   for an accidental pass.
@@ -269,7 +271,8 @@ Before relying on review coverage:
 - Match every expected host kind and assigned dimension only against complete
   batches or valid carry-forward accepted by the current closure. Historical,
   stale, supplemental, or unaccepted batches do not fill an assignment;
-  `separate_required` assignments consume distinct source batches.
+  `separate_required` assignments require a complete distinct-provider matching
+  and cannot depend on provider-list order.
 - Treat strict implementer independence as a coverage property, not a command
   to create one batch per dimension. Combination never removes a required
   specialist or independent batch. A supplemental self-check does not poison

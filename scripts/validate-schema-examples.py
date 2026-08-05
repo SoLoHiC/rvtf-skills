@@ -66,7 +66,6 @@ V04_ONLY_TOP_LEVEL_FIELDS = {
     "review_coverage_carry_forward",
     "closure_packet",
 }
-CURRENT_TEST_FRESHNESS = {"current_tree", "current_boundary", "current_message", "fresh"}
 
 
 @dataclass(frozen=True)
@@ -113,6 +112,25 @@ def _is_one_of(value: Any, choices: set[str]) -> bool:
 
 def _lookup(index: Mapping[str, Mapping[str, Any]], reference: Any) -> Mapping[str, Any] | None:
     return index.get(reference) if isinstance(reference, str) else None
+
+
+def _has_distinct_provider_matching(candidate_keys: Sequence[Sequence[str]]) -> bool:
+    """Return whether every expected assignment can use a distinct eligible provider."""
+
+    provider_to_assignment: dict[str, int] = {}
+
+    def augment(assignment_index: int, visited: set[str]) -> bool:
+        for provider_key in sorted(set(candidate_keys[assignment_index])):
+            if provider_key in visited:
+                continue
+            visited.add(provider_key)
+            previous = provider_to_assignment.get(provider_key)
+            if previous is None or augment(previous, visited):
+                provider_to_assignment[provider_key] = assignment_index
+                return True
+        return False
+
+    return all(augment(index, set()) for index in range(len(candidate_keys)))
 
 
 def _index(records: Iterable[Mapping[str, Any]], key: str) -> dict[str, Mapping[str, Any]]:
@@ -1225,7 +1243,6 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
             == closure.get("subject_revision")
             and receipt.get("lifecycle_boundary") == required.get("lifecycle_boundary")
             and receipt.get("freshness") == required.get("freshness")
-            and _is_one_of(receipt.get("freshness"), CURRENT_TEST_FRESHNESS)
         )
         if not claim_is_current:
             diagnostics.append(
@@ -1830,7 +1847,8 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
 
-        used_provider_keys: set[str] = set()
+        assignment_candidate_keys: list[list[str]] = []
+        missing_assignment = False
         for index, expected in enumerate(_list(contract.get("expected_batches"))):
             if not isinstance(expected, Mapping):
                 continue
@@ -1843,6 +1861,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 and (not independence_required or provider["independent"])
             ]
             if not candidates:
+                missing_assignment = True
                 diagnostics.append(
                     _diag(
                         "missing-accepted-expected-review-batch",
@@ -1851,21 +1870,19 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     )
                 )
                 continue
-            if contract.get("batch_combination_policy") == "separate_required":
-                distinct = [provider for provider in candidates if provider["key"] not in used_provider_keys]
-                if not distinct:
-                    diagnostics.append(
-                        _diag(
-                            "separate-review-batches-not-distinct",
-                            f"review_contract.expected_batches[{index}]",
-                            "separate_required assignments must resolve to distinct accepted review batches",
-                        )
-                    )
-                    continue
-                selected = distinct[0]
-            else:
-                selected = candidates[0]
-            used_provider_keys.add(selected["key"])
+            assignment_candidate_keys.append([provider["key"] for provider in candidates])
+        if (
+            contract.get("batch_combination_policy") == "separate_required"
+            and not missing_assignment
+            and not _has_distinct_provider_matching(assignment_candidate_keys)
+        ):
+            diagnostics.append(
+                _diag(
+                    "separate-review-batches-not-distinct",
+                    "review_contract.expected_batches",
+                    "separate_required assignments must have a distinct accepted-provider matching",
+                )
+            )
 
     return diagnostics
 
@@ -2213,12 +2230,56 @@ def run_mutation_contract(root: Path) -> int:
     def stale_effective_current_test_receipt(document: dict[str, Any]) -> None:
         document["host_gate_receipts"][0]["subject_revision"] = "old-revision"
 
+    def host_defined_current_freshness(document: dict[str, Any]) -> None:
+        document["verification_policy"]["host_native_required_gates"][0]["freshness"] = "pre_merge_current"
+        document["host_gate_receipts"][0]["freshness"] = "pre_merge_current"
+
     def separate_assignment_reuses_batch(document: dict[str, Any]) -> None:
         contract = document["review_contract"]
         contract["batch_combination_policy"] = "separate_required"
         expected = copy.deepcopy(contract["expected_batches"][0])
         expected["id"] = "security-review-second"
         contract["expected_batches"].append(expected)
+
+    def configure_distinct_assignment_graph(
+        document: dict[str, Any], *, narrow_provider_first: bool
+    ) -> None:
+        contract = document["review_contract"]
+        contract["batch_combination_policy"] = "separate_required"
+        narrow_expected = {
+            "id": "task-review-narrow",
+            "host_kind": "task-review",
+            "dimensions": ["requirement-fidelity"],
+        }
+        broad_expected = {
+            "id": "task-review-broad",
+            "host_kind": "task-review",
+            "dimensions": [
+                "requirement-fidelity",
+                "impact-and-ownership",
+                "verification-and-closure",
+            ],
+        }
+        contract["expected_batches"].extend([narrow_expected, broad_expected])
+
+        broad_batch = document["review_batches"][1]
+        narrow_batch = copy.deepcopy(broad_batch)
+        narrow_batch["id"] = "RB-OE-HOST-TASK-NARROW-001"
+        narrow_batch.pop("host_batch_ref", None)
+        narrow_batch["dimension_coverage"] = [
+            {"dimension": "requirement-fidelity", "status": "covered", "findings": []}
+        ]
+        document["review_batches"].append(narrow_batch)
+        accepted = [broad_batch["id"], narrow_batch["id"]]
+        if narrow_provider_first:
+            accepted.reverse()
+        document["closure_packet"]["review_closure"]["accepted_batches"] = accepted
+
+    def narrow_before_broad_assignment(document: dict[str, Any]) -> None:
+        configure_distinct_assignment_graph(document, narrow_provider_first=False)
+
+    def reversed_provider_order_assignment(document: dict[str, Any]) -> None:
+        configure_distinct_assignment_graph(document, narrow_provider_first=True)
 
     def carry_target_missing(document: dict[str, Any]) -> None:
         document["review_coverage_carry_forward"][0].pop("target_epoch")
@@ -2323,12 +2384,15 @@ def run_mutation_contract(root: Path) -> int:
             stale_effective_current_test_receipt,
             ("host-gate-receipt-mismatch", "invalid-current-test-status-claim"),
         ),
+        MutationCase("host-defined-current-freshness", "v04", host_defined_current_freshness, ()),
         MutationCase(
             "separate-assignment-reuses-batch",
             "v04",
             separate_assignment_reuses_batch,
             ("separate-review-batches-not-distinct",),
         ),
+        MutationCase("narrow-before-broad-assignment", "v04", narrow_before_broad_assignment, ()),
+        MutationCase("reversed-provider-order-assignment", "v04", reversed_provider_order_assignment, ()),
         MutationCase(
             "carry-target-missing",
             "v04",

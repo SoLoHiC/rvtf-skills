@@ -739,7 +739,9 @@ revision. A valid older claim cannot manufacture a current test-status claim.
 `current_test_status_claim: passed` is valid only when that exact receipt is
 referenced by the closure's satisfied effective host gate at the current
 revision; unused, historical, failed, wrong-boundary, and stale receipts do not
-prove current tests.
+prove current tests. `freshness` is a host-policy value, not an RVTF enum: the
+receipt must exactly match the effective required gate's declared value (for
+example, `pre_merge_current`).
 
 ## Additive 0.4 Verification Policy
 
@@ -835,8 +837,10 @@ resolving epoch receipt. Contract `expected_batches[].host_kind` and
 carry-forward explicitly accepted by the current closure; historical or
 unaccepted batches do not satisfy the assignment. `separate_required` consumes
 distinct accepted source batches, while `combined_allowed` may reuse one
-qualified combined batch. Independence is evaluated per required dimension, so
-a supplemental self-check does not poison independently covered required work.
+qualified combined batch. Distinct assignment is a complete matching across all
+eligible accepted providers, independent of provider or assignment order.
+Independence is evaluated per required dimension, so a supplemental self-check
+does not poison independently covered required work.
 
 A scope in `review_state: pending_at_parent` remains `incomplete` when formal
 parent review is part of its closure contract. Change the state to
