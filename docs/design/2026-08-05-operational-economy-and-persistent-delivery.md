@@ -23,8 +23,9 @@ a release claim
 | Agent Skills | `main` | `7829ffd90d973b6325f5f12f1b1226dcace74443` |
 | BMAD Method | `main` | `116491165d850e9d074554c6271f452363bb607a` |
 
-Adapter implementation 与 forward tests 必须记录各自实际使用的 host revision；若宿主
-生命周期在实施前发生变化，应先更新 mapping decision，而不是沿用本表的旧假设。
+本表的 pinned revisions 是当前 adapter mapping 与 forward tests 的宿主快照。
+若宿主在这些 revision 之后发生变化，采用新 host revision 前必须先更新
+mapping decision，并重新运行该 adapter 的 forward tests。
 
 **Implementation ownership:** The candidate implementation and Task 7
 documentation/version slice are recorded on the current feature branch. Task 8
