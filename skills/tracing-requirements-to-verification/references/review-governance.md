@@ -132,6 +132,9 @@ review_applicability:
 ```
 
 Use `decision: not_required` only with a rationale and omit the contract.
+Closed 0.4 standard/strict packets always record this decision. `required`
+means the contract and closed epoch receipt resolve; strict closure cannot use
+`not_required`.
 Suggested governance modes:
 
 - `bounded`
@@ -233,6 +236,14 @@ forced separate batches: one independent, qualified combined batch may satisfy
 several dimensions when no specialist or host constraint requires separation.
 Conversely, combination cannot erase specialist expertise, segregation, strict
 independence, or a host-native batch.
+
+At closure, match each `expected_batches[].host_kind` and assigned `dimensions`
+only against complete batches or valid carry-forward named by the current
+closure. A historical batch with the same host kind is not an assignment
+receipt. `separate_required` assignments consume distinct source batches;
+`combined_allowed` may reuse one qualified combined batch. Evaluate
+independence across required dimensions only, so a supplemental implementer
+self-check does not invalidate otherwise independent required coverage.
 
 ### Review Epoch
 
@@ -369,7 +380,9 @@ review_coverage_carry_forward:
 The source batch and impact assessment must resolve. `from_revision` equals the
 source batch's actual historical revision; `to_revision`, unchanged dimensions,
 assessor, rationale, and accepted decision agree with the impact assessment.
-Carry only dimensions the source batch actually covered.
+Carry only dimensions the source batch actually covered. `target_epoch` is
+mandatory; when closure accepts the carry-forward it equals the closure epoch,
+and `to_revision` equals that epoch's revision and the closure subject revision.
 
 Run a bounded delta batch for changed dimensions and changed evidence. If impact
 cannot establish that a dimension is unchanged, create a new batch or use the

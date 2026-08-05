@@ -41,6 +41,9 @@ Before review can affect closure or scope:
   rationale showing no formal review lifecycle is part of the delivery decision.
 - In `strict`, require bounded governance plus independent-from-implementer
   review evidence for the affected risk scope.
+- A closed 0.4 standard/strict packet always records applicability. When it is
+  `required`, the contract and closed epoch receipt must resolve; strict closure
+  cannot select `not_required`.
 - Activate governance when formal reviewers, multiple review passes, blocking
   review findings, strict risk, or prior remediation review are present.
 
@@ -173,6 +176,11 @@ Before reusing a receipt or invalidating proof:
   `stale`, `invalidated`, and `unknown` cannot support `verified`.
 - Keep Item and Journey claims distinct. Every `evidence_ref` resolves to the
   claim for that exact target.
+- Require a verified Item's inline record or registry claim to be strong,
+  target-specific, normal-gate proof backed by a pass. Require one verified
+  Journey path record or claim to cover every local Step plus order and outcome.
+  Reject inline/registry mixing for the same target, while allowing different
+  targets to use different representations.
 - When the artifact and checked revision differ, compare target, verifier,
   relevant dependency basis, environment compatibility, and freshness. In
   standard/strict, record the assessor, policy, rationale, before/after values,
@@ -189,6 +197,8 @@ Before selecting commands for a boundary:
 
 - Define the `worker`, `batch`, `milestone`, and `completion` tiers for a new
   standard/strict verification policy.
+- Require that policy and a non-empty host-native gate floor for every closed
+  0.4 standard/strict packet; omission or an empty list is not an economy choice.
 - Select the smallest sufficient tier for the current scope and trigger;
   Milestone integration and Goal full-suite commands do not run early merely
   because the semantic audit is named Completion Gate.
@@ -200,7 +210,8 @@ Before selecting commands for a boundary:
   full-suite gates still require their matching fresh receipts.
 - Keep claim validity, `host_gate_status`, and `current_test_status_claim`
   separate. Only a matching passed receipt at the current revision and
-  lifecycle boundary supports the latter two facts.
+  lifecycle boundary supports the latter two facts, and the current-test receipt
+  must be the one referenced by the satisfied effective closure gate.
 - Keep a failed required gate visible. Isolate its first real failure, use the
   applicable retry/quarantine/escalation policy, and never rerun indefinitely
   for an accidental pass.
@@ -255,9 +266,14 @@ Before relying on review coverage:
 - Use `combined_allowed` only when one qualified batch can cover the declared
   dimensions. Use `separate_required` for expertise, segregation, or policy,
   and `host_native` for the host's actual fan-out.
+- Match every expected host kind and assigned dimension only against complete
+  batches or valid carry-forward accepted by the current closure. Historical,
+  stale, supplemental, or unaccepted batches do not fill an assignment;
+  `separate_required` assignments consume distinct source batches.
 - Treat strict implementer independence as a coverage property, not a command
   to create one batch per dimension. Combination never removes a required
-  specialist or independent batch.
+  specialist or independent batch. A supplemental self-check does not poison
+  independently accepted coverage of all required dimensions.
 
 ## Remediation Review Gate
 
@@ -279,8 +295,10 @@ When remediation changes the review subject revision:
 
 - Never edit or relabel the historical batch's epoch or subject revision.
 - Carry unchanged coverage through a new `review_coverage_carry_forward` that
-  resolves the source batch and records exact from/to revisions, unchanged
-  dimensions, assessor, and accepted impact assessment.
+  resolves the source batch and target epoch and records exact from/to
+  revisions, unchanged dimensions, assessor, and accepted impact assessment.
+- For closure use, require `target_epoch` to equal the closure epoch and
+  `to_revision` to equal both the epoch and closure subject revision.
 - Require the impact assessment and carry-forward to agree on source, from/to,
   dimensions, assessor, rationale, and decision.
 - Carry only dimensions the source batch actually covered.

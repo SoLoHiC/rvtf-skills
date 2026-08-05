@@ -46,6 +46,15 @@ review_epochs:
         revision: historical123
     status: closed
 
+  - id: RE-REBIND-002
+    contract: RC-REBIND-001
+    prior_epoch: RE-REBIND-001
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: current789
+    status: closed
+
 review_batches:
   - id: RB-REBIND-001
     epoch: RE-REBIND-001
@@ -89,6 +98,7 @@ review_impact_assessments:
 review_coverage_carry_forward:
   - id: RCF-REBIND-001
     source_batch_ref: RB-REBIND-001
+    target_epoch: RE-REBIND-002
     from_revision: silently-rebound456
     to_revision: current789
     unchanged_dimensions:

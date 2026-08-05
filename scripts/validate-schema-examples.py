@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import copy
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 try:
     import yaml
@@ -53,6 +54,19 @@ STOP_BASES = {
     "host_command_completed",
 }
 EXPECTED_ERROR_RE = re.compile(r"^# expected-error: ([a-z0-9][a-z0-9-]*)$")
+V04_ONLY_TOP_LEVEL_FIELDS = {
+    "delivery_scopes",
+    "delivery_groups",
+    "evidence_artifacts",
+    "evidence_claims",
+    "evidence_validity_assessments",
+    "verification_policy",
+    "host_gate_receipts",
+    "review_impact_assessments",
+    "review_coverage_carry_forward",
+    "closure_packet",
+}
+CURRENT_TEST_FRESHNESS = {"current_tree", "current_boundary", "current_message", "fresh"}
 
 
 @dataclass(frozen=True)
@@ -64,6 +78,16 @@ class Diagnostic:
     message: str
 
 
+@dataclass(frozen=True)
+class MutationCase:
+    """One deterministic validator mutation and its exact diagnostic contract."""
+
+    name: str
+    source: str
+    mutate: Callable[[dict[str, Any]], None]
+    expected_codes: tuple[str, ...]
+
+
 def _diag(code: str, path: str, message: str) -> Diagnostic:
     return Diagnostic(code=code, path=path, message=message)
 
@@ -73,6 +97,22 @@ def _records(document: Mapping[str, Any], key: str) -> list[Mapping[str, Any]]:
     if not isinstance(value, list):
         return []
     return [record for record in value if isinstance(record, Mapping)]
+
+
+def _list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _is_one_of(value: Any, choices: set[str]) -> bool:
+    return isinstance(value, str) and value in choices
+
+
+def _lookup(index: Mapping[str, Mapping[str, Any]], reference: Any) -> Mapping[str, Any] | None:
+    return index.get(reference) if isinstance(reference, str) else None
 
 
 def _index(records: Iterable[Mapping[str, Any]], key: str) -> dict[str, Mapping[str, Any]]:
@@ -92,7 +132,7 @@ def _string_list(value: Any) -> list[str]:
 
 def _subject_revisions(record: Mapping[str, Any]) -> set[str]:
     revisions: set[str] = set()
-    for subject in record.get("subject_refs", []):
+    for subject in _list(record.get("subject_refs")):
         if isinstance(subject, Mapping):
             revision = subject.get("revision")
             if isinstance(revision, str) and revision:
@@ -114,14 +154,14 @@ def _trace_indexes(document: Mapping[str, Any]) -> tuple[set[str], set[str], set
         requirement_id = requirement.get("id")
         if isinstance(requirement_id, str):
             requirement_ids.add(requirement_id)
-        for item in requirement.get("acceptance", []):
+        for item in _list(requirement.get("acceptance")):
             if isinstance(item, Mapping) and isinstance(item.get("id"), str):
                 item_ids.add(item["id"])
     for journey in _records(document, "journeys"):
         journey_id = journey.get("id")
         if isinstance(journey_id, str):
             journey_ids.add(journey_id)
-        for step in journey.get("steps", []):
+        for step in _list(journey.get("steps")):
             if isinstance(step, Mapping) and isinstance(step.get("id"), str):
                 step_ids.add(step["id"])
     return requirement_ids, item_ids, journey_ids, step_ids
@@ -133,7 +173,7 @@ def validate_document_shape(document: Any) -> list[Diagnostic]:
         return [_diag("document-not-mapping", "$", "the YAML document must be a mapping")]
 
     version = document.get("schema_version")
-    if version not in SUPPORTED_SCHEMA_VERSIONS:
+    if not _is_one_of(version, SUPPORTED_SCHEMA_VERSIONS):
         diagnostics.append(
             _diag(
                 "unsupported-schema-version",
@@ -141,6 +181,17 @@ def validate_document_shape(document: Any) -> list[Diagnostic]:
                 "schema_version must be exactly 0.3.0 or 0.4.0",
             )
         )
+
+    if version == "0.3.0":
+        incompatible = sorted(field for field in V04_ONLY_TOP_LEVEL_FIELDS if field in document)
+        if incompatible:
+            diagnostics.append(
+                _diag(
+                    "legacy-schema-has-v04-sections",
+                    "schema_version",
+                    f"0.3.0 cannot contain 0.4-only sections: {incompatible!r}",
+                )
+            )
 
     list_fields = (
         "requirements",
@@ -169,9 +220,217 @@ def validate_document_shape(document: Any) -> list[Diagnostic]:
                         _diag("invalid-record", f"{field}[{index}]", "record must be a mapping")
                     )
 
-    for field in ("scope", "review_contract", "review_freeze", "verification_policy", "closure_packet"):
+    for field in (
+        "scope",
+        "review_applicability",
+        "review_contract",
+        "review_freeze",
+        "verification_policy",
+        "closure_packet",
+    ):
         if field in document and not isinstance(document[field], Mapping):
             diagnostics.append(_diag("invalid-object", field, f"{field} must be a mapping"))
+
+    def require_list(record: Mapping[str, Any], field: str, path: str) -> None:
+        if field in record and not isinstance(record[field], list):
+            diagnostics.append(_diag("invalid-nested-list", f"{path}.{field}", f"{field} must be a list"))
+
+    def require_mapping(record: Mapping[str, Any], field: str, path: str) -> None:
+        if field in record and not isinstance(record[field], Mapping):
+            diagnostics.append(_diag("invalid-nested-mapping", f"{path}.{field}", f"{field} must be a mapping"))
+
+    def require_string_items(record: Mapping[str, Any], field: str, path: str) -> None:
+        for index, value in enumerate(_list(record.get(field))):
+            if not isinstance(value, str) or not value:
+                diagnostics.append(
+                    _diag(
+                        "invalid-nested-scalar",
+                        f"{path}.{field}[{index}]",
+                        f"{field} entries must be non-empty strings",
+                    )
+                )
+
+    for requirement_index, requirement in enumerate(_records(document, "requirements")):
+        require_list(requirement, "acceptance", f"requirements[{requirement_index}]")
+        for item_index, item in enumerate(_list(requirement.get("acceptance"))):
+            if not isinstance(item, Mapping):
+                diagnostics.append(
+                    _diag(
+                        "invalid-nested-record",
+                        f"requirements[{requirement_index}].acceptance[{item_index}]",
+                        "Acceptance Item must be a mapping",
+                    )
+                )
+                continue
+            require_list(item, "evidence", f"requirements[{requirement_index}].acceptance[{item_index}]")
+            for evidence_index, evidence in enumerate(_list(item.get("evidence"))):
+                if not isinstance(evidence, Mapping):
+                    diagnostics.append(
+                        _diag(
+                            "invalid-nested-record",
+                            f"requirements[{requirement_index}].acceptance[{item_index}].evidence[{evidence_index}]",
+                            "Item evidence must be a mapping",
+                        )
+                    )
+
+    for journey_index, journey in enumerate(_records(document, "journeys")):
+        require_list(journey, "steps", f"journeys[{journey_index}]")
+        require_list(journey, "path_evidence", f"journeys[{journey_index}]")
+        for step_index, step in enumerate(_list(journey.get("steps"))):
+            if not isinstance(step, Mapping):
+                diagnostics.append(
+                    _diag(
+                        "invalid-nested-record",
+                        f"journeys[{journey_index}].steps[{step_index}]",
+                        "Journey Step must be a mapping",
+                    )
+                )
+                continue
+            require_list(step, "acceptance_item_ids", f"journeys[{journey_index}].steps[{step_index}]")
+            require_string_items(step, "acceptance_item_ids", f"journeys[{journey_index}].steps[{step_index}]")
+        for evidence_index, evidence in enumerate(_list(journey.get("path_evidence"))):
+            if not isinstance(evidence, Mapping):
+                diagnostics.append(
+                    _diag(
+                        "invalid-nested-record",
+                        f"journeys[{journey_index}].path_evidence[{evidence_index}]",
+                        "Journey path evidence must be a mapping",
+                    )
+                )
+            else:
+                require_list(evidence, "covers_steps", f"journeys[{journey_index}].path_evidence[{evidence_index}]")
+                require_string_items(
+                    evidence,
+                    "covers_steps",
+                    f"journeys[{journey_index}].path_evidence[{evidence_index}]",
+                )
+
+    for index, scope in enumerate(_records(document, "delivery_scopes")):
+        require_list(scope, "required_child_scope_refs", f"delivery_scopes[{index}]")
+        require_string_items(scope, "required_child_scope_refs", f"delivery_scopes[{index}]")
+        require_mapping(scope, "required_inventory_exclusion", f"delivery_scopes[{index}]")
+    for index, group in enumerate(_records(document, "delivery_groups")):
+        require_list(group, "member_scope_refs", f"delivery_groups[{index}]")
+        require_string_items(group, "member_scope_refs", f"delivery_groups[{index}]")
+    for index, claim in enumerate(_records(document, "evidence_claims")):
+        require_mapping(claim, "validity", f"evidence_claims[{index}]")
+        require_list(claim, "covers_steps", f"evidence_claims[{index}]")
+        require_string_items(claim, "covers_steps", f"evidence_claims[{index}]")
+    for index, assessment in enumerate(_records(document, "evidence_validity_assessments")):
+        require_mapping(assessment, "basis", f"evidence_validity_assessments[{index}]")
+
+    policy = _mapping(document.get("verification_policy"))
+    require_list(policy, "host_native_required_gates", "verification_policy")
+    for index, gate in enumerate(_list(policy.get("host_native_required_gates"))):
+        if not isinstance(gate, Mapping):
+            diagnostics.append(
+                _diag(
+                    "invalid-nested-record",
+                    f"verification_policy.host_native_required_gates[{index}]",
+                    "required host gate must be a mapping",
+                )
+            )
+    require_mapping(policy, "tiers", "verification_policy")
+    for tier, tier_record in _mapping(policy.get("tiers")).items():
+        if not isinstance(tier_record, Mapping):
+            diagnostics.append(_diag("invalid-nested-mapping", f"verification_policy.tiers.{tier}", "tier must be a mapping"))
+        else:
+            require_list(tier_record, "command_refs", f"verification_policy.tiers.{tier}")
+            require_string_items(tier_record, "command_refs", f"verification_policy.tiers.{tier}")
+
+    contract = _mapping(document.get("review_contract"))
+    for field in ("covered_child_scope_refs", "host_native_required_batches", "expected_batches"):
+        require_list(contract, field, "review_contract")
+    for field in ("covered_child_scope_refs", "host_native_required_batches"):
+        require_string_items(contract, field, "review_contract")
+    if version == "0.4.0":
+        require_mapping(contract, "dimensions", "review_contract")
+    elif (
+        version == "0.3.0"
+        and not any(field in document for field in V04_ONLY_TOP_LEVEL_FIELDS)
+        and "dimensions" in contract
+        and not isinstance(contract.get("dimensions"), list)
+    ):
+        diagnostics.append(
+            _diag(
+                "invalid-nested-list",
+                "review_contract.dimensions",
+                "legacy 0.3 review dimensions must remain a list",
+            )
+        )
+    require_mapping(contract, "independence", "review_contract")
+    for index, expected in enumerate(_list(contract.get("expected_batches"))):
+        if not isinstance(expected, Mapping):
+            diagnostics.append(
+                _diag(
+                    "invalid-nested-record",
+                    f"review_contract.expected_batches[{index}]",
+                    "expected batch must be a mapping",
+                )
+            )
+        else:
+            require_list(expected, "dimensions", f"review_contract.expected_batches[{index}]")
+            require_string_items(expected, "dimensions", f"review_contract.expected_batches[{index}]")
+
+    for collection in ("review_epochs", "review_batches"):
+        for index, record in enumerate(_records(document, collection)):
+            require_list(record, "subject_refs", f"{collection}[{index}]")
+            for subject_index, subject in enumerate(_list(record.get("subject_refs"))):
+                if not isinstance(subject, Mapping):
+                    diagnostics.append(
+                        _diag(
+                            "invalid-nested-record",
+                            f"{collection}[{index}].subject_refs[{subject_index}]",
+                            "subject reference must be a mapping",
+                        )
+                    )
+            if collection == "review_batches":
+                require_mapping(record, "reviewer", f"{collection}[{index}]")
+                require_list(record, "dimension_coverage", f"{collection}[{index}]")
+                for coverage_index, coverage in enumerate(_list(record.get("dimension_coverage"))):
+                    if not isinstance(coverage, Mapping):
+                        diagnostics.append(
+                            _diag(
+                                "invalid-nested-record",
+                                f"{collection}[{index}].dimension_coverage[{coverage_index}]",
+                                "dimension coverage must be a mapping",
+                            )
+                        )
+    for index, carry in enumerate(_records(document, "review_coverage_carry_forward")):
+        require_list(carry, "unchanged_dimensions", f"review_coverage_carry_forward[{index}]")
+        require_string_items(carry, "unchanged_dimensions", f"review_coverage_carry_forward[{index}]")
+
+    closure = _mapping(document.get("closure_packet"))
+    require_list(closure, "host_gate_status", "closure_packet")
+    for index, gate_status in enumerate(_list(closure.get("host_gate_status"))):
+        if not isinstance(gate_status, Mapping):
+            diagnostics.append(
+                _diag(
+                    "invalid-nested-record",
+                    f"closure_packet.host_gate_status[{index}]",
+                    "host gate status must be a mapping",
+                )
+            )
+    require_mapping(closure, "review_closure", "closure_packet")
+    require_mapping(closure, "continuation", "closure_packet")
+    review_closure = _mapping(closure.get("review_closure"))
+    for field in ("subject_refs", "accepted_batches", "accepted_carry_forward"):
+        require_list(review_closure, field, "closure_packet.review_closure")
+    for field in ("accepted_batches", "accepted_carry_forward"):
+        require_string_items(review_closure, field, "closure_packet.review_closure")
+    for index, subject in enumerate(_list(review_closure.get("subject_refs"))):
+        if not isinstance(subject, Mapping):
+            diagnostics.append(
+                _diag(
+                    "invalid-nested-record",
+                    f"closure_packet.review_closure.subject_refs[{index}]",
+                    "subject reference must be a mapping",
+                )
+            )
+    continuation = _mapping(closure.get("continuation"))
+    for field in ("remaining_scope_refs", "next_entry_conditions"):
+        require_list(continuation, field, "closure_packet.continuation")
+        require_string_items(continuation, field, "closure_packet.continuation")
     return diagnostics
 
 
@@ -272,11 +531,11 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
     for index, scope in enumerate(scopes):
         scope_ref = scope.get("scope_ref")
         path = f"delivery_scopes[{index}]"
-        if scope.get("scope_kind") not in SCOPE_KINDS:
+        if not _is_one_of(scope.get("scope_kind"), SCOPE_KINDS):
             diagnostics.append(
                 _diag("invalid-scope-kind", f"{path}.scope_kind", "scope_kind must be goal, milestone, or unit")
             )
-        if scope.get("disposition") not in CLOSURE_DISPOSITIONS:
+        if not _is_one_of(scope.get("disposition"), CLOSURE_DISPOSITIONS):
             diagnostics.append(
                 _diag("invalid-scope-disposition", f"{path}.disposition", "scope disposition is not canonical")
             )
@@ -286,7 +545,7 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
             )
 
         parent_ref = scope.get("parent_scope_ref")
-        if parent_ref is not None and parent_ref not in scope_index:
+        if parent_ref is not None and _lookup(scope_index, parent_ref) is None:
             diagnostics.append(
                 _diag(
                     "unknown-parent-scope",
@@ -319,12 +578,14 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
             seen_children: set[str] = set()
             for child_index, child_ref in enumerate(children):
                 child_path = f"{path}.required_child_scope_refs[{child_index}]"
+                if not isinstance(child_ref, str) or not child_ref:
+                    diagnostics.append(_diag("invalid-scope-reference", child_path, "child scope reference must be a string"))
+                    continue
                 if child_ref in seen_children:
                     diagnostics.append(_diag("duplicate-required-child", child_path, f"duplicate child {child_ref!r}"))
                     continue
-                if isinstance(child_ref, str):
-                    seen_children.add(child_ref)
-                child = scope_index.get(child_ref)
+                seen_children.add(child_ref)
+                child = _lookup(scope_index, child_ref)
                 if child is None:
                     diagnostics.append(_diag("unknown-required-child-scope", child_path, f"child {child_ref!r} does not resolve"))
                     continue
@@ -344,7 +605,9 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                             f"child {child_ref!r} is inventoried as required but required_for_parent is not true",
                         )
                     )
-                if scope.get("disposition") in CLOSED_DISPOSITIONS and child.get("disposition") not in CLOSED_DISPOSITIONS:
+                if _is_one_of(scope.get("disposition"), CLOSED_DISPOSITIONS) and not _is_one_of(
+                    child.get("disposition"), CLOSED_DISPOSITIONS
+                ):
                     diagnostics.append(
                         _diag(
                             "blocked-required-child-closes-parent",
@@ -355,7 +618,7 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
 
     for index, scope in enumerate(scopes):
         parent_ref = scope.get("parent_scope_ref")
-        parent = scope_index.get(parent_ref)
+        parent = _lookup(scope_index, parent_ref)
         if parent is None:
             continue
         scope_ref = scope.get("scope_ref")
@@ -391,7 +654,7 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
             continue
-        amendment = amendments.get(exclusion.get("amendment_ref"))
+        amendment = _lookup(amendments, exclusion.get("amendment_ref"))
         if amendment is None or amendment.get("decision") != "accepted":
             diagnostics.append(
                 _diag(
@@ -425,11 +688,11 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
         order: list[str] = []
         position: dict[str, int] = {}
         current: Any = start
-        while current in scope_index and current not in position:
+        while isinstance(current, str) and current in scope_index and current not in position:
             position[current] = len(order)
             order.append(current)
             current = scope_index[current].get("parent_scope_ref")
-        if current in position:
+        if isinstance(current, str) and current in position:
             cycle = frozenset(order[position[current] :])
             if cycle not in reported_cycles:
                 reported_cycles.add(cycle)
@@ -440,7 +703,7 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
     groups = _records(document, "delivery_groups")
     for index, group in enumerate(groups):
         path = f"delivery_groups[{index}]"
-        if group.get("group_kind") not in GROUP_KINDS:
+        if not _is_one_of(group.get("group_kind"), GROUP_KINDS):
             diagnostics.append(
                 _diag(
                     "invalid-delivery-group-kind",
@@ -457,11 +720,14 @@ def validate_delivery_scopes(document: Mapping[str, Any]) -> list[Diagnostic]:
         seen_members: set[str] = set()
         for member_index, member_ref in enumerate(members):
             member_path = f"{path}.member_scope_refs[{member_index}]"
+            if not isinstance(member_ref, str) or not member_ref:
+                diagnostics.append(_diag("invalid-scope-reference", member_path, "group member reference must be a string"))
+                continue
             if member_ref in seen_members:
                 diagnostics.append(_diag("duplicate-delivery-group-member", member_path, f"duplicate member {member_ref!r}"))
-            elif member_ref not in scope_index:
+            elif _lookup(scope_index, member_ref) is None:
                 diagnostics.append(_diag("unknown-delivery-group-member", member_path, f"scope {member_ref!r} does not resolve"))
-            elif isinstance(member_ref, str):
+            else:
                 seen_members.add(member_ref)
     return diagnostics
 
@@ -498,7 +764,7 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
     journey_steps = {
         journey.get("id"): {
             step.get("id")
-            for step in journey.get("steps", [])
+            for step in _list(journey.get("steps"))
             if isinstance(step, Mapping) and isinstance(step.get("id"), str)
         }
         for journey in _records(document, "journeys")
@@ -514,20 +780,13 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
     for requirement_index, requirement in enumerate(_records(document, "requirements")):
         acceptance = requirement.get("acceptance", [])
         if not isinstance(acceptance, list):
-            diagnostics.append(
-                _diag(
-                    "invalid-acceptance-items",
-                    f"requirements[{requirement_index}].acceptance",
-                    "acceptance must be a list",
-                )
-            )
             continue
         for item_index, item in enumerate(acceptance):
             if not isinstance(item, Mapping):
                 continue
             item_id = item.get("id")
             status = item.get("status")
-            if status not in TRACE_STATUSES:
+            if not _is_one_of(status, TRACE_STATUSES):
                 diagnostics.append(
                     _diag(
                         "invalid-acceptance-item-status",
@@ -535,12 +794,25 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                         "Acceptance Item status is not canonical",
                     )
                 )
-            for evidence_index, evidence in enumerate(item.get("evidence", [])):
+            evidence_records = [evidence for evidence in _list(item.get("evidence")) if isinstance(evidence, Mapping)]
+            has_registry = any("evidence_ref" in evidence for evidence in evidence_records)
+            has_inline = any("evidence_ref" not in evidence for evidence in evidence_records)
+            if has_registry and has_inline:
+                diagnostics.append(
+                    _diag(
+                        "ambiguous-target-evidence-representation",
+                        f"requirements[{requirement_index}].acceptance[{item_index}].evidence",
+                        "one target cannot mix inline truth with registry evidence_ref",
+                    )
+                )
+            strong_inline = False
+            valid_registry = False
+            for evidence_index, evidence in enumerate(evidence_records):
                 if not isinstance(evidence, Mapping):
                     continue
                 evidence_path = f"requirements[{requirement_index}].acceptance[{item_index}].evidence[{evidence_index}]"
                 if "evidence_ref" in evidence:
-                    claim = claims.get(evidence.get("evidence_ref"))
+                    claim = _lookup(claims, evidence.get("evidence_ref"))
                     if claim is None:
                         diagnostics.append(
                             _diag("unknown-evidence-claim", f"{evidence_path}.evidence_ref", "evidence_ref does not resolve")
@@ -561,6 +833,16 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                                 "a verified Item requires a currently valid target-specific claim",
                             )
                         )
+                    else:
+                        artifact = _lookup(artifacts, claim.get("artifact_ref"))
+                        valid_registry = valid_registry or (
+                            _claim_validity_status(claim) == "valid"
+                            and artifact is not None
+                            and artifact.get("result") == "passed"
+                            and claim.get("normal_gate") is True
+                            and isinstance(claim.get("proves"), str)
+                            and bool(claim.get("proves"))
+                        )
                 elif evidence.get("target") != item_id:
                     diagnostics.append(
                         _diag(
@@ -569,10 +851,25 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                             "inline Item evidence must target its canonical Acceptance Item",
                         )
                     )
+                else:
+                    strong_inline = strong_inline or (
+                        evidence.get("quality") == "strong"
+                        and evidence.get("normal_gate") is True
+                        and isinstance(evidence.get("proves"), str)
+                        and bool(evidence.get("proves"))
+                    )
+            if status == "verified" and not strong_inline and not valid_registry:
+                diagnostics.append(
+                    _diag(
+                        "verified-item-without-strong-evidence",
+                        f"requirements[{requirement_index}].acceptance[{item_index}].evidence",
+                        "verified Acceptance Item requires strong target-specific inline evidence or a valid registry claim",
+                    )
+                )
 
     for journey_index, journey in enumerate(_records(document, "journeys")):
         journey_id = journey.get("id")
-        if journey.get("status") not in TRACE_STATUSES:
+        if not _is_one_of(journey.get("status"), TRACE_STATUSES):
             diagnostics.append(
                 _diag(
                     "invalid-journey-status",
@@ -581,14 +878,14 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
         local_steps: set[str] = set()
-        for step_index, step in enumerate(journey.get("steps", [])):
+        for step_index, step in enumerate(_list(journey.get("steps"))):
             if not isinstance(step, Mapping):
                 continue
             step_id = step.get("id")
             if isinstance(step_id, str):
                 local_steps.add(step_id)
-            for item_ref_index, item_ref in enumerate(step.get("acceptance_item_ids", [])):
-                if item_ref not in item_ids:
+            for item_ref_index, item_ref in enumerate(_list(step.get("acceptance_item_ids"))):
+                if not isinstance(item_ref, str) or item_ref not in item_ids:
                     diagnostics.append(
                         _diag(
                             "unknown-step-acceptance-item",
@@ -596,12 +893,25 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                             f"Acceptance Item {item_ref!r} does not resolve",
                         )
                     )
-        for evidence_index, evidence in enumerate(journey.get("path_evidence", [])):
+        path_records = [evidence for evidence in _list(journey.get("path_evidence")) if isinstance(evidence, Mapping)]
+        has_registry = any("evidence_ref" in evidence for evidence in path_records)
+        has_inline = any("evidence_ref" not in evidence for evidence in path_records)
+        if has_registry and has_inline:
+            diagnostics.append(
+                _diag(
+                    "ambiguous-target-evidence-representation",
+                    f"journeys[{journey_index}].path_evidence",
+                    "one Journey cannot mix inline path truth with registry evidence_ref",
+                )
+            )
+        strong_inline_paths: list[set[str]] = []
+        valid_registry_paths: list[set[str]] = []
+        for evidence_index, evidence in enumerate(path_records):
             if not isinstance(evidence, Mapping):
                 continue
             evidence_path = f"journeys[{journey_index}].path_evidence[{evidence_index}]"
             if "evidence_ref" in evidence:
-                claim = claims.get(evidence.get("evidence_ref"))
+                claim = _lookup(claims, evidence.get("evidence_ref"))
                 if claim is None:
                     diagnostics.append(
                         _diag("unknown-evidence-claim", f"{evidence_path}.evidence_ref", "evidence_ref does not resolve")
@@ -622,6 +932,19 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                             "a verified Journey requires a currently valid target-specific path claim",
                         )
                     )
+                else:
+                    artifact = _lookup(artifacts, claim.get("artifact_ref"))
+                    if (
+                        _claim_validity_status(claim) == "valid"
+                        and artifact is not None
+                        and artifact.get("result") == "passed"
+                        and claim.get("normal_gate") is True
+                        and isinstance(claim.get("proves"), str)
+                        and bool(claim.get("proves"))
+                        and claim.get("proves_order") is True
+                        and claim.get("proves_outcome") is True
+                    ):
+                        valid_registry_paths.append(set(_string_list(claim.get("covers_steps"))))
             else:
                 unknown_steps = set(_string_list(evidence.get("covers_steps"))) - local_steps
                 if unknown_steps:
@@ -632,9 +955,30 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
                             f"inline path evidence references steps outside this Journey: {sorted(unknown_steps)!r}",
                         )
                     )
+                if (
+                    evidence.get("quality") == "strong"
+                    and evidence.get("normal_gate") is True
+                    and evidence.get("proves_order") is True
+                    and evidence.get("proves_outcome") is True
+                ):
+                    strong_inline_paths.append(set(_string_list(evidence.get("covers_steps"))))
+        if journey.get("status") == "verified" and not (
+            local_steps
+            and any(
+                local_steps.issubset(path_steps)
+                for path_steps in strong_inline_paths + valid_registry_paths
+            )
+        ):
+            diagnostics.append(
+                _diag(
+                    "verified-journey-without-strong-path-evidence",
+                    f"journeys[{journey_index}].path_evidence",
+                    "verified Journey requires strong path evidence covering its Steps, order, and outcome",
+                )
+            )
 
     for index, assessment in enumerate(_records(document, "evidence_validity_assessments")):
-        if assessment.get("claim_ref") not in claims:
+        if _lookup(claims, assessment.get("claim_ref")) is None:
             diagnostics.append(
                 _diag(
                     "unknown-validity-assessment-claim",
@@ -645,20 +989,20 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
 
     for index, claim in enumerate(_records(document, "evidence_claims")):
         path = f"evidence_claims[{index}]"
-        artifact = artifacts.get(claim.get("artifact_ref"))
+        artifact = _lookup(artifacts, claim.get("artifact_ref"))
         if artifact is None:
             diagnostics.append(_diag("unknown-claim-artifact", f"{path}.artifact_ref", "claim artifact_ref does not resolve"))
         target_kind = claim.get("target_kind")
         target_ref = claim.get("target_ref")
         if not isinstance(claim.get("proves"), str) or not claim.get("proves"):
             diagnostics.append(_diag("missing-claim-proof", f"{path}.proves", "claim must state what it proves"))
-        if target_kind not in CLAIM_TARGET_KINDS:
+        if not _is_one_of(target_kind, CLAIM_TARGET_KINDS):
             diagnostics.append(
                 _diag("invalid-claim-target-kind", f"{path}.target_kind", "target_kind must be acceptance_item or journey")
             )
-        elif target_kind == "acceptance_item" and target_ref not in item_ids:
+        elif target_kind == "acceptance_item" and (not isinstance(target_ref, str) or target_ref not in item_ids):
             diagnostics.append(_diag("unknown-claim-target", f"{path}.target_ref", "Acceptance Item target does not resolve"))
-        elif target_kind == "journey" and target_ref not in journey_ids:
+        elif target_kind == "journey" and (not isinstance(target_ref, str) or target_ref not in journey_ids):
             diagnostics.append(_diag("unknown-claim-target", f"{path}.target_ref", "Journey target does not resolve"))
 
         validity = claim.get("validity")
@@ -666,7 +1010,7 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
             diagnostics.append(_diag("missing-claim-validity", f"{path}.validity", "claim validity is required"))
             continue
         status = validity.get("status")
-        if status not in CLAIM_VALIDITY_STATUSES:
+        if not _is_one_of(status, CLAIM_VALIDITY_STATUSES):
             diagnostics.append(
                 _diag(
                     "invalid-claim-validity-status",
@@ -681,7 +1025,7 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
             )
         if target_kind == "journey":
             covered_steps = set(_string_list(claim.get("covers_steps")))
-            target_steps = journey_steps.get(target_ref, set())
+            target_steps = journey_steps.get(target_ref, set()) if isinstance(target_ref, str) else set()
             if not covered_steps or not covered_steps.issubset(target_steps) or not claim.get("proves_order") or not claim.get("proves_outcome"):
                 diagnostics.append(
                     _diag(
@@ -708,7 +1052,7 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
             continue
 
         assessment_ref = validity.get("assessment_ref")
-        assessment = assessments.get(assessment_ref)
+        assessment = _lookup(assessments, assessment_ref)
         if assessment is None:
             if mode == "lite" and _lite_reuse_basis_is_explicit(validity):
                 continue
@@ -755,15 +1099,29 @@ def validate_evidence_registry(document: Mapping[str, Any]) -> list[Diagnostic]:
 
 def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
-    policy = document.get("verification_policy")
-    if policy is None:
-        return diagnostics
-    if not isinstance(policy, Mapping):
-        return diagnostics
     version = document.get("schema_version")
-    mode = document.get("scope", {}).get("mode") if isinstance(document.get("scope"), Mapping) else None
+    mode = _mapping(document.get("scope")).get("mode")
+    closure = _mapping(document.get("closure_packet"))
+    closed_packet = (
+        version == "0.4.0"
+        and _is_one_of(mode, {"standard", "strict"})
+        and _is_one_of(closure.get("disposition"), CLOSED_DISPOSITIONS)
+    )
+    policy_value = document.get("verification_policy")
+    policy_present = isinstance(policy_value, Mapping)
+    if not policy_present:
+        if closed_packet:
+            diagnostics.append(
+                _diag(
+                    "missing-closed-verification-policy",
+                    "verification_policy",
+                    "closed 0.4 standard/strict packets require an effective verification_policy",
+                )
+            )
+    policy = _mapping(policy_value)
+
     tiers = policy.get("tiers")
-    if version == "0.4.0" and mode in {"standard", "strict"}:
+    if policy_present and version == "0.4.0" and _is_one_of(mode, {"standard", "strict"}):
         if not isinstance(tiers, Mapping) or not VERIFICATION_TIERS.issubset(tiers):
             diagnostics.append(
                 _diag(
@@ -782,46 +1140,28 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
                             f"{tier} tier requires command_refs",
                         )
                     )
-        if "host_native_required_gates" not in policy or not isinstance(policy.get("host_native_required_gates"), list):
+        if not _list(policy.get("host_native_required_gates")):
             diagnostics.append(
                 _diag(
                     "missing-host-native-gate-floor",
                     "verification_policy.host_native_required_gates",
-                    "0.4 standard/strict policy must preserve host_native_required_gates",
+                    "0.4 standard/strict policy must preserve at least one host-native required gate",
                 )
             )
 
     required_gates = {
         gate.get("gate_ref"): gate
-        for gate in policy.get("host_native_required_gates", [])
+        for gate in _list(policy.get("host_native_required_gates"))
         if isinstance(gate, Mapping) and isinstance(gate.get("gate_ref"), str)
     }
     receipts = _index(_records(document, "host_gate_receipts"), "id")
-    for index, receipt in enumerate(_records(document, "host_gate_receipts")):
-        if receipt.get("current_test_status_claim") == "passed" and receipt.get("status") != "passed":
-            diagnostics.append(
-                _diag(
-                    "stale-current-test-status-claim",
-                    f"host_gate_receipts[{index}].current_test_status_claim",
-                    "current tests may be claimed passed only from a passed fresh host receipt",
-                )
-            )
-
-    closure = document.get("closure_packet")
-    if not isinstance(closure, Mapping):
-        return diagnostics
-    gate_status_records = closure.get("host_gate_status", [])
-    if not isinstance(gate_status_records, list):
-        diagnostics.append(
-            _diag("invalid-host-gate-status", "closure_packet.host_gate_status", "host_gate_status must be a list")
-        )
-        return diagnostics
+    gate_status_records = _list(closure.get("host_gate_status"))
     gate_status = {
         record.get("gate_ref"): record
         for record in gate_status_records
         if isinstance(record, Mapping) and isinstance(record.get("gate_ref"), str)
     }
-    if closure.get("disposition") in CLOSED_DISPOSITIONS:
+    if closed_packet:
         for gate_ref in sorted(required_gates):
             status = gate_status.get(gate_ref)
             if status is None or status.get("status") != "satisfied":
@@ -837,8 +1177,8 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
         if not isinstance(status, Mapping) or status.get("status") != "satisfied":
             continue
         path = f"closure_packet.host_gate_status[{index}]"
-        required = required_gates.get(status.get("gate_ref"))
-        receipt = receipts.get(status.get("receipt_ref"))
+        required = _lookup(required_gates, status.get("gate_ref"))
+        receipt = _lookup(receipts, status.get("receipt_ref"))
         if receipt is None:
             diagnostics.append(_diag("unknown-host-gate-receipt", f"{path}.receipt_ref", "receipt_ref does not resolve"))
             continue
@@ -862,24 +1202,117 @@ def validate_verification_policy(document: Mapping[str, Any]) -> list[Diagnostic
                     "satisfied host gate requires a passed receipt with matching gate, boundary, freshness, and revision",
                 )
             )
+
+    referenced_claim_receipts = {
+        status.get("receipt_ref"): status
+        for status in gate_status_records
+        if isinstance(status, Mapping)
+        and status.get("status") == "satisfied"
+        and isinstance(status.get("receipt_ref"), str)
+    }
+    for index, receipt in enumerate(_records(document, "host_gate_receipts")):
+        if receipt.get("current_test_status_claim") != "passed":
+            continue
+        status = _lookup(referenced_claim_receipts, receipt.get("id"))
+        required = _lookup(required_gates, receipt.get("gate_ref"))
+        claim_is_current = (
+            status is not None
+            and required is not None
+            and receipt.get("status") == "passed"
+            and receipt.get("gate_ref") == status.get("gate_ref")
+            and receipt.get("subject_revision")
+            == status.get("subject_revision")
+            == closure.get("subject_revision")
+            and receipt.get("lifecycle_boundary") == required.get("lifecycle_boundary")
+            and receipt.get("freshness") == required.get("freshness")
+            and _is_one_of(receipt.get("freshness"), CURRENT_TEST_FRESHNESS)
+        )
+        if not claim_is_current:
+            diagnostics.append(
+                _diag(
+                    "invalid-current-test-status-claim",
+                    f"host_gate_receipts[{index}].current_test_status_claim",
+                    "passed current-test claims require a used, passed, effective host-gate receipt at the current revision and boundary",
+                )
+            )
     return diagnostics
 
 
 def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
     version = document.get("schema_version")
-    mode = document.get("scope", {}).get("mode") if isinstance(document.get("scope"), Mapping) else None
+    mode = _mapping(document.get("scope")).get("mode")
     contract = document.get("review_contract")
     contract = contract if isinstance(contract, Mapping) else None
+    applicability = document.get("review_applicability")
+    applicability = applicability if isinstance(applicability, Mapping) else None
     scopes = _index(_records(document, "delivery_scopes"), "scope_ref")
     epochs = _index(_records(document, "review_epochs"), "id")
     batches = _index(_records(document, "review_batches"), "id")
     findings = _index(_records(document, "review_findings"), "id")
     assessments = _index(_records(document, "review_impact_assessments"), "id")
     carry_forwards = _index(_records(document, "review_coverage_carry_forward"), "id")
+    closure = _mapping(document.get("closure_packet"))
+    closed_packet = (
+        version == "0.4.0"
+        and _is_one_of(mode, {"standard", "strict"})
+        and _is_one_of(closure.get("disposition"), CLOSED_DISPOSITIONS)
+    )
+
+    if closed_packet and applicability is None:
+        diagnostics.append(
+            _diag(
+                "missing-review-applicability",
+                "review_applicability",
+                "closed 0.4 standard/strict packets must declare review applicability",
+            )
+        )
+    if applicability is not None and version == "0.4.0":
+        applicability_decision = applicability.get("decision")
+        if not _is_one_of(applicability_decision, {"required", "not_required"}):
+            diagnostics.append(
+                _diag(
+                    "invalid-review-applicability",
+                    "review_applicability.decision",
+                    "review applicability must be required or not_required",
+                )
+            )
+        if mode == "strict" and closed_packet and applicability_decision != "required":
+            diagnostics.append(
+                _diag(
+                    "strict-review-not-required",
+                    "review_applicability.decision",
+                    "strict closed packets require review coverage",
+                )
+            )
+        if applicability_decision == "required" and contract is None:
+            diagnostics.append(
+                _diag(
+                    "missing-required-review-contract",
+                    "review_contract",
+                    "required review applicability requires a review_contract",
+                )
+            )
+        if contract is not None and applicability.get("scope_ref") != contract.get("scope_ref"):
+            diagnostics.append(
+                _diag(
+                    "review-applicability-contract-scope-mismatch",
+                    "review_applicability.scope_ref",
+                    "review applicability and contract must describe the same scope",
+                )
+            )
+        applicability_scope = applicability.get("scope_ref")
+        if scopes and _lookup(scopes, applicability_scope) is None:
+            diagnostics.append(
+                _diag(
+                    "unknown-review-applicability-scope",
+                    "review_applicability.scope_ref",
+                    "review applicability scope_ref does not resolve",
+                )
+            )
 
     if contract is not None and version == "0.4.0":
-        if contract.get("cadence") not in REVIEW_CADENCES:
+        if not _is_one_of(contract.get("cadence"), REVIEW_CADENCES):
             diagnostics.append(
                 _diag("invalid-review-cadence", "review_contract.cadence", "cadence must be unit, batch, milestone, or host_native")
             )
@@ -895,7 +1328,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "new review contract requires covered_child_scope_refs, which may be empty",
                 )
             )
-        if contract.get("batch_combination_policy") not in REVIEW_COMBINATION_POLICIES:
+        if not _is_one_of(contract.get("batch_combination_policy"), REVIEW_COMBINATION_POLICIES):
             diagnostics.append(
                 _diag(
                     "invalid-review-batch-combination-policy",
@@ -922,7 +1355,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "new review contract must retain all baseline dimensions",
                 )
             )
-        if mode == "strict" and contract.get("independence", {}).get("required") is not True:
+        if mode == "strict" and _mapping(contract.get("independence")).get("required") is not True:
             diagnostics.append(
                 _diag(
                     "missing-strict-review-independence",
@@ -940,19 +1373,34 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     )
                 )
 
+    if (
+        version == "0.4.0"
+        and applicability is not None
+        and applicability.get("decision") == "required"
+        and contract is not None
+        and not epochs
+    ):
+        diagnostics.append(
+            _diag(
+                "missing-required-review-epoch",
+                "review_epochs",
+                "required review applicability needs a review epoch bound to its contract",
+            )
+        )
+
     for index, epoch in enumerate(_records(document, "review_epochs")):
         if contract is not None and epoch.get("contract") != contract.get("id"):
             diagnostics.append(
                 _diag("unknown-review-contract", f"review_epochs[{index}].contract", "review epoch contract does not resolve")
             )
         prior_epoch = epoch.get("prior_epoch")
-        if prior_epoch is not None and prior_epoch not in epochs:
+        if prior_epoch is not None and _lookup(epochs, prior_epoch) is None:
             diagnostics.append(
                 _diag("unknown-prior-review-epoch", f"review_epochs[{index}].prior_epoch", "prior_epoch does not resolve")
             )
 
     for index, batch in enumerate(_records(document, "review_batches")):
-        epoch = epochs.get(batch.get("epoch"))
+        epoch = _lookup(epochs, batch.get("epoch"))
         if epoch is None:
             diagnostics.append(
                 _diag("unknown-review-batch-epoch", f"review_batches[{index}].epoch", "review batch epoch does not resolve")
@@ -970,12 +1418,12 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
     for index, finding in enumerate(_records(document, "review_findings")):
         epoch_ref = finding.get("epoch")
         batch_ref = finding.get("batch")
-        if epoch_ref is not None and epoch_ref not in epochs:
+        if epoch_ref is not None and _lookup(epochs, epoch_ref) is None:
             diagnostics.append(
                 _diag("unknown-review-finding-epoch", f"review_findings[{index}].epoch", "finding epoch does not resolve")
             )
         if batch_ref is not None:
-            batch = batches.get(batch_ref)
+            batch = _lookup(batches, batch_ref)
             if batch is None:
                 diagnostics.append(
                     _diag("unknown-review-finding-batch", f"review_findings[{index}].batch", "finding batch does not resolve")
@@ -991,7 +1439,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
 
     freeze = document.get("review_freeze")
     if isinstance(freeze, Mapping):
-        freeze_epoch = epochs.get(freeze.get("epoch"))
+        freeze_epoch = _lookup(epochs, freeze.get("epoch"))
         if freeze_epoch is None:
             diagnostics.append(_diag("unknown-review-freeze-epoch", "review_freeze.epoch", "freeze epoch does not resolve"))
         elif _subject_revisions(freeze) != _subject_revisions(freeze_epoch):
@@ -1003,7 +1451,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
         for batch_ref in _string_list(freeze.get("accepted_batches")):
-            batch = batches.get(batch_ref)
+            batch = _lookup(batches, batch_ref)
             if batch is None or batch.get("epoch") != freeze.get("epoch"):
                 diagnostics.append(
                     _diag(
@@ -1013,7 +1461,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     )
                 )
         for finding_ref in _string_list(freeze.get("frozen_findings")):
-            if finding_ref not in findings:
+            if _lookup(findings, finding_ref) is None:
                 diagnostics.append(
                     _diag(
                         "unknown-frozen-review-finding",
@@ -1023,7 +1471,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
 
     for index, assessment in enumerate(_records(document, "review_impact_assessments")):
-        if assessment.get("source_batch_ref") not in batches:
+        if _lookup(batches, assessment.get("source_batch_ref")) is None:
             diagnostics.append(
                 _diag(
                     "unknown-review-impact-source-batch",
@@ -1034,13 +1482,39 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
 
     for index, carry in enumerate(_records(document, "review_coverage_carry_forward")):
         path = f"review_coverage_carry_forward[{index}]"
-        source = batches.get(carry.get("source_batch_ref"))
+        source = _lookup(batches, carry.get("source_batch_ref"))
+        target_epoch_ref = carry.get("target_epoch")
+        target_epoch = _lookup(epochs, target_epoch_ref)
+        if not isinstance(target_epoch_ref, str) or not target_epoch_ref:
+            diagnostics.append(
+                _diag(
+                    "missing-review-carry-forward-target-epoch",
+                    f"{path}.target_epoch",
+                    "carry-forward requires an explicit target_epoch",
+                )
+            )
+        elif target_epoch is None:
+            diagnostics.append(
+                _diag(
+                    "unknown-review-carry-forward-target-epoch",
+                    f"{path}.target_epoch",
+                    "target_epoch does not resolve",
+                )
+            )
+        elif not isinstance(carry.get("to_revision"), str) or carry.get("to_revision") not in _subject_revisions(target_epoch):
+            diagnostics.append(
+                _diag(
+                    "review-carry-forward-target-revision-mismatch",
+                    f"{path}.to_revision",
+                    "to_revision must match the target epoch revision",
+                )
+            )
         if source is None:
             diagnostics.append(
                 _diag("unknown-review-carry-forward-source-batch", f"{path}.source_batch_ref", "source batch does not resolve")
             )
             continue
-        if carry.get("from_revision") not in _subject_revisions(source):
+        if not isinstance(carry.get("from_revision"), str) or carry.get("from_revision") not in _subject_revisions(source):
             diagnostics.append(
                 _diag(
                     "review-carry-forward-source-revision-mismatch",
@@ -1049,7 +1523,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
             continue
-        impact = assessments.get(carry.get("impact_assessment_ref"))
+        impact = _lookup(assessments, carry.get("impact_assessment_ref"))
         if impact is None:
             diagnostics.append(
                 _diag(
@@ -1080,25 +1554,12 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
             continue
-        target_epoch = carry.get("target_epoch")
-        if target_epoch is not None:
-            target = epochs.get(target_epoch)
-            if target is None:
-                diagnostics.append(
-                    _diag("unknown-review-carry-forward-target-epoch", f"{path}.target_epoch", "target_epoch does not resolve")
-                )
-            elif carry.get("to_revision") not in _subject_revisions(target):
-                diagnostics.append(
-                    _diag(
-                        "review-carry-forward-target-revision-mismatch",
-                        f"{path}.to_revision",
-                        "to_revision must match the target epoch revision",
-                    )
-                )
         covered = {
             coverage.get("dimension")
-            for coverage in source.get("dimension_coverage", [])
-            if isinstance(coverage, Mapping) and coverage.get("status") == "covered"
+            for coverage in _list(source.get("dimension_coverage"))
+            if isinstance(coverage, Mapping)
+            and isinstance(coverage.get("dimension"), str)
+            and coverage.get("status") == "covered"
         }
         if not unchanged.issubset(covered):
             diagnostics.append(
@@ -1109,37 +1570,11 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
 
-    if contract is not None and version == "0.4.0":
-        actual_host_refs = {
-            batch.get("host_batch_ref")
-            for batch in batches.values()
-            if isinstance(batch.get("host_batch_ref"), str)
-        }
-        for host_ref in _string_list(contract.get("host_native_required_batches")):
-            if host_ref not in actual_host_refs:
-                diagnostics.append(
-                    _diag(
-                        "missing-host-native-review-batch",
-                        "review_contract.host_native_required_batches",
-                        f"required host-native batch {host_ref!r} has no actual review receipt",
-                    )
-                )
-        actual_host_kinds = {batch.get("host_kind") for batch in batches.values()}
-        for index, expected in enumerate(contract.get("expected_batches", [])):
-            if isinstance(expected, Mapping) and expected.get("host_kind") not in actual_host_kinds:
-                diagnostics.append(
-                    _diag(
-                        "missing-expected-review-batch",
-                        f"review_contract.expected_batches[{index}]",
-                        f"expected host review kind {expected.get('host_kind')!r} has no actual batch",
-                    )
-                )
-
     for index, scope in enumerate(_records(document, "delivery_scopes")):
         review_state = scope.get("review_state")
         if review_state is None:
             continue
-        if review_state not in {"pending_at_parent", "covered_at_parent", "not_required"}:
+        if not _is_one_of(review_state, {"pending_at_parent", "covered_at_parent", "not_required"}):
             diagnostics.append(
                 _diag(
                     "invalid-child-review-state",
@@ -1160,7 +1595,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "pending_at_parent requires explicit parent coverage for this child scope",
                 )
             )
-        if review_state == "pending_at_parent" and scope.get("disposition") in CLOSED_DISPOSITIONS:
+        if review_state == "pending_at_parent" and _is_one_of(scope.get("disposition"), CLOSED_DISPOSITIONS):
             diagnostics.append(
                 _diag(
                     "pending-parent-review-closes-scope",
@@ -1198,19 +1633,31 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     )
                 )
 
-    closure = document.get("closure_packet")
-    review_closure = closure.get("review_closure") if isinstance(closure, Mapping) else None
+    review_closure = closure.get("review_closure")
+    review_required = applicability is not None and applicability.get("decision") == "required"
+    if closed_packet and review_required and (
+        not isinstance(review_closure, Mapping) or review_closure.get("status") != "closed"
+    ):
+        diagnostics.append(
+            _diag(
+                "missing-required-review-closure",
+                "closure_packet.review_closure",
+                "required review applicability needs a closed review receipt",
+            )
+        )
     if not isinstance(review_closure, Mapping) or review_closure.get("status") != "closed":
         return diagnostics
-    epoch = epochs.get(review_closure.get("epoch"))
+    epoch = _lookup(epochs, review_closure.get("epoch"))
     if epoch is None:
         diagnostics.append(_diag("unknown-review-closure-epoch", "closure_packet.review_closure.epoch", "review closure epoch does not resolve"))
         return diagnostics
-    if epoch.get("status") != "closed" or _subject_revisions(epoch) != {
-        subject.get("revision")
-        for subject in review_closure.get("subject_refs", [])
-        if isinstance(subject, Mapping) and isinstance(subject.get("revision"), str)
-    } or (isinstance(closure, Mapping) and closure.get("subject_revision") not in _subject_revisions(epoch)):
+    closure_revisions = _subject_revisions(review_closure)
+    if (
+        epoch.get("status") != "closed"
+        or _subject_revisions(epoch) != closure_revisions
+        or not isinstance(closure.get("subject_revision"), str)
+        or closure.get("subject_revision") not in _subject_revisions(epoch)
+    ):
         diagnostics.append(
             _diag(
                 "review-closure-revision-mismatch",
@@ -1219,16 +1666,17 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
             )
         )
 
-    covered_dimensions: set[str] = set()
-    accepted_reviewers: list[Mapping[str, Any]] = []
+    providers: list[dict[str, Any]] = []
     for batch_ref in _string_list(review_closure.get("accepted_batches")):
-        batch = batches.get(batch_ref)
+        batch = _lookup(batches, batch_ref)
         if batch is None:
             diagnostics.append(
                 _diag("unknown-accepted-review-batch", "closure_packet.review_closure.accepted_batches", f"batch {batch_ref!r} does not resolve")
             )
             continue
-        if batch.get("epoch") != epoch.get("id"):
+        current_epoch = batch.get("epoch") == epoch.get("id")
+        complete = batch.get("coverage_status") == "complete"
+        if not current_epoch:
             diagnostics.append(
                 _diag(
                     "accepted-review-batch-wrong-epoch",
@@ -1236,7 +1684,7 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     f"batch {batch_ref!r} does not belong to the closure epoch",
                 )
             )
-        if batch.get("coverage_status") != "complete":
+        if not complete:
             diagnostics.append(
                 _diag(
                     "accepted-review-batch-incomplete",
@@ -1244,15 +1692,27 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     f"accepted batch {batch_ref!r} must have complete declared coverage",
                 )
             )
-        accepted_reviewers.append(batch.get("reviewer", {}))
-        covered_dimensions.update(
-            coverage.get("dimension")
-            for coverage in batch.get("dimension_coverage", [])
-            if isinstance(coverage, Mapping) and coverage.get("status") == "covered"
-        )
+        if current_epoch and complete:
+            dimensions = {
+                coverage.get("dimension")
+                for coverage in _list(batch.get("dimension_coverage"))
+                if isinstance(coverage, Mapping)
+                and isinstance(coverage.get("dimension"), str)
+                and coverage.get("status") == "covered"
+            }
+            providers.append(
+                {
+                    "key": f"batch:{batch_ref}",
+                    "host_kind": batch.get("host_kind"),
+                    "host_batch_ref": batch.get("host_batch_ref"),
+                    "dimensions": dimensions,
+                    "independent": _mapping(batch.get("reviewer")).get("relationship_to_implementer")
+                    == "independent",
+                }
+            )
 
     for carry_ref in _string_list(review_closure.get("accepted_carry_forward")):
-        carry = carry_forwards.get(carry_ref)
+        carry = _lookup(carry_forwards, carry_ref)
         if carry is None:
             diagnostics.append(
                 _diag(
@@ -1262,7 +1722,16 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                 )
             )
             continue
-        if carry.get("to_revision") not in _subject_revisions(epoch):
+        target_epoch_ref = carry.get("target_epoch")
+        if isinstance(target_epoch_ref, str) and target_epoch_ref != epoch.get("id"):
+            diagnostics.append(
+                _diag(
+                    "accepted-review-carry-forward-wrong-epoch",
+                    "closure_packet.review_closure.accepted_carry_forward",
+                    f"carry-forward {carry_ref!r} does not target the closure epoch",
+                )
+            )
+        if carry.get("to_revision") != closure.get("subject_revision"):
             diagnostics.append(
                 _diag(
                     "accepted-review-carry-forward-wrong-revision",
@@ -1270,10 +1739,8 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     f"carry-forward {carry_ref!r} does not target the closure revision",
                 )
             )
-        covered_dimensions.update(_string_list(carry.get("unchanged_dimensions")))
-        source = batches.get(carry.get("source_batch_ref"))
+        source = _lookup(batches, carry.get("source_batch_ref"))
         if source is not None:
-            accepted_reviewers.append(source.get("reviewer", {}))
             if source.get("coverage_status") != "complete":
                 diagnostics.append(
                     _diag(
@@ -1282,10 +1749,52 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                         f"carry-forward {carry_ref!r} cannot reuse an incomplete source batch",
                     )
                 )
+            unchanged = set(_string_list(carry.get("unchanged_dimensions")))
+            source_dimensions = {
+                coverage.get("dimension")
+                for coverage in _list(source.get("dimension_coverage"))
+                if isinstance(coverage, Mapping)
+                and isinstance(coverage.get("dimension"), str)
+                and coverage.get("status") == "covered"
+            }
+            impact = _lookup(assessments, carry.get("impact_assessment_ref"))
+            carry_valid = (
+                target_epoch_ref == epoch.get("id")
+                and carry.get("to_revision") == closure.get("subject_revision")
+                and isinstance(carry.get("to_revision"), str)
+                and carry.get("to_revision") in _subject_revisions(epoch)
+                and isinstance(carry.get("from_revision"), str)
+                and carry.get("from_revision") in _subject_revisions(source)
+                and source.get("coverage_status") == "complete"
+                and unchanged.issubset(source_dimensions)
+                and carry.get("decision") == "accepted"
+                and impact is not None
+                and impact.get("decision") == "accepted"
+                and impact.get("source_batch_ref") == carry.get("source_batch_ref")
+                and impact.get("from_revision") == carry.get("from_revision")
+                and impact.get("to_revision") == carry.get("to_revision")
+                and set(_string_list(impact.get("unchanged_dimensions"))) == unchanged
+            )
+            if carry_valid:
+                providers.append(
+                    {
+                        "key": f"batch:{source.get('id')}",
+                        "host_kind": source.get("host_kind"),
+                        "host_batch_ref": source.get("host_batch_ref"),
+                        "dimensions": unchanged,
+                        "independent": _mapping(source.get("reviewer")).get("relationship_to_implementer")
+                        == "independent",
+                    }
+                )
 
     if contract is not None:
-        dimensions = contract.get("dimensions", {})
-        required_dimensions = set(_string_list(dimensions.get("baseline"))) | set(_string_list(dimensions.get("triggered")))
+        dimensions = _mapping(contract.get("dimensions"))
+        required_dimensions = set(_string_list(dimensions.get("baseline"))) | set(
+            _string_list(dimensions.get("triggered"))
+        )
+        covered_dimensions = set().union(
+            *(provider["dimensions"] for provider in providers)
+        ) if providers else set()
         if not required_dimensions.issubset(covered_dimensions):
             diagnostics.append(
                 _diag(
@@ -1296,9 +1805,9 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
             )
         required_host_refs = set(_string_list(contract.get("host_native_required_batches")))
         accepted_host_refs = {
-            batches[batch_ref].get("host_batch_ref")
-            for batch_ref in _string_list(review_closure.get("accepted_batches"))
-            if batch_ref in batches
+            provider.get("host_batch_ref")
+            for provider in providers
+            if isinstance(provider.get("host_batch_ref"), str)
         }
         if not required_host_refs.issubset(accepted_host_refs):
             diagnostics.append(
@@ -1308,16 +1817,55 @@ def validate_review_governance(document: Mapping[str, Any]) -> list[Diagnostic]:
                     "closed review must accept every required host-native batch",
                 )
             )
-        if contract.get("independence", {}).get("required") is True and any(
-            reviewer.get("relationship_to_implementer") != "independent" for reviewer in accepted_reviewers
-        ):
+        independence_required = _mapping(contract.get("independence")).get("required") is True
+        independent_dimensions = set().union(
+            *(provider["dimensions"] for provider in providers if provider["independent"])
+        ) if any(provider["independent"] for provider in providers) else set()
+        if independence_required and not required_dimensions.issubset(independent_dimensions):
             diagnostics.append(
                 _diag(
                     "review-closure-lacks-independence",
                     "closure_packet.review_closure",
-                    "required independent review coverage cannot be self-approved",
+                    "every required review dimension needs independent accepted coverage",
                 )
             )
+
+        used_provider_keys: set[str] = set()
+        for index, expected in enumerate(_list(contract.get("expected_batches"))):
+            if not isinstance(expected, Mapping):
+                continue
+            expected_dimensions = set(_string_list(expected.get("dimensions")))
+            candidates = [
+                provider
+                for provider in providers
+                if provider.get("host_kind") == expected.get("host_kind")
+                and expected_dimensions.issubset(provider["dimensions"])
+                and (not independence_required or provider["independent"])
+            ]
+            if not candidates:
+                diagnostics.append(
+                    _diag(
+                        "missing-accepted-expected-review-batch",
+                        f"review_contract.expected_batches[{index}]",
+                        "expected review assignment is not satisfied by accepted current closure evidence",
+                    )
+                )
+                continue
+            if contract.get("batch_combination_policy") == "separate_required":
+                distinct = [provider for provider in candidates if provider["key"] not in used_provider_keys]
+                if not distinct:
+                    diagnostics.append(
+                        _diag(
+                            "separate-review-batches-not-distinct",
+                            f"review_contract.expected_batches[{index}]",
+                            "separate_required assignments must resolve to distinct accepted review batches",
+                        )
+                    )
+                    continue
+                selected = distinct[0]
+            else:
+                selected = candidates[0]
+            used_provider_keys.add(selected["key"])
 
     return diagnostics
 
@@ -1331,11 +1879,11 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
         return diagnostics
     scopes = _index(_records(document, "delivery_scopes"), "scope_ref")
     scope_ref = closure.get("scope_ref")
-    closed_scope = scopes.get(scope_ref)
+    closed_scope = _lookup(scopes, scope_ref)
     if scopes and closed_scope is None:
         diagnostics.append(_diag("unknown-closure-scope", "closure_packet.scope_ref", "closure scope_ref does not resolve"))
         return diagnostics
-    if closure.get("disposition") not in CLOSURE_DISPOSITIONS:
+    if not _is_one_of(closure.get("disposition"), CLOSURE_DISPOSITIONS):
         diagnostics.append(
             _diag("invalid-closure-disposition", "closure_packet.disposition", "closure disposition is not canonical")
         )
@@ -1364,7 +1912,7 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
         )
         return diagnostics
     parent_ref = continuation.get("parent_scope_ref")
-    parent = scopes.get(parent_ref)
+    parent = _lookup(scopes, parent_ref)
     if not isinstance(parent_ref, str) or not parent_ref:
         diagnostics.append(
             _diag(
@@ -1393,7 +1941,9 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
                 "continuation parent disposition must preserve current parent truth",
             )
         )
-    if parent is None and continuation.get("parent_disposition") not in CLOSURE_DISPOSITIONS | {"unknown"}:
+    if parent is None and not _is_one_of(
+        continuation.get("parent_disposition"), CLOSURE_DISPOSITIONS | {"unknown"}
+    ):
         diagnostics.append(
             _diag(
                 "invalid-continuation-parent-disposition",
@@ -1402,7 +1952,7 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
             )
         )
     mode = continuation.get("continuation_mode")
-    if mode not in CONTINUATION_MODES:
+    if not _is_one_of(mode, CONTINUATION_MODES):
         diagnostics.append(
             _diag(
                 "invalid-continuation-mode",
@@ -1410,7 +1960,7 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
                 "continuation_mode must be durable_host, artifact_only, or advisory",
             )
         )
-    if mode in {"durable_host", "artifact_only"} and (
+    if _is_one_of(mode, {"durable_host", "artifact_only"}) and (
         not continuation.get("authority_ref") or not continuation.get("resume_locator")
     ):
         diagnostics.append(
@@ -1439,7 +1989,8 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
         )
     else:
         for index, remaining_ref in enumerate(remaining):
-            if scopes and remaining_ref not in scopes:
+            remaining_scope = _lookup(scopes, remaining_ref)
+            if scopes and remaining_scope is None:
                 diagnostics.append(
                     _diag(
                         "unknown-continuation-remaining-scope",
@@ -1447,7 +1998,9 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
                         f"remaining scope {remaining_ref!r} does not resolve",
                     )
                 )
-            elif remaining_ref in scopes and scopes[remaining_ref].get("disposition") in CLOSED_DISPOSITIONS:
+            elif remaining_scope is not None and _is_one_of(
+                remaining_scope.get("disposition"), CLOSED_DISPOSITIONS
+            ):
                 diagnostics.append(
                     _diag(
                         "closed-scope-listed-as-remaining",
@@ -1465,7 +2018,7 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
             )
         )
     action = continuation.get("execution_action")
-    if action not in CONTINUATION_ACTIONS:
+    if not _is_one_of(action, CONTINUATION_ACTIONS):
         diagnostics.append(
             _diag(
                 "invalid-continuation-action",
@@ -1474,8 +2027,8 @@ def validate_closure_continuation(document: Mapping[str, Any]) -> list[Diagnosti
             )
         )
     stop_basis = continuation.get("stop_basis")
-    if action in {"stop", "host_boundary"}:
-        if stop_basis not in STOP_BASES:
+    if _is_one_of(action, {"stop", "host_boundary"}):
+        if not _is_one_of(stop_basis, STOP_BASES):
             diagnostics.append(
                 _diag(
                     "missing-continuation-stop-basis",
@@ -1582,11 +2135,277 @@ def run_fixture_contract(root: Path) -> int:
     return 0 if failures == 0 else 1
 
 
+def run_mutation_contract(root: Path) -> int:
+    """Deep-copy accepted fixtures and prove bounded invariant mutations fail exactly."""
+
+    fixture_root = root / "scripts" / "fixtures" / "schema" / "positive"
+    source_paths = {
+        "v04": fixture_root / "v0.4-registry.yaml",
+        "legacy": fixture_root / "v0.3-inline.yaml",
+    }
+    sources: dict[str, dict[str, Any]] = {}
+    for source, path in source_paths.items():
+        document, load_diagnostics = load_document(path)
+        if load_diagnostics or not isinstance(document, dict):
+            print(
+                f"FAIL mutation-source:{source}: "
+                f"diagnostics={_format_diagnostics(load_diagnostics)}"
+            )
+            return 1
+        sources[source] = document
+
+    def missing_policy(document: dict[str, Any]) -> None:
+        document.pop("verification_policy")
+
+    def clear_host_gates(document: dict[str, Any]) -> None:
+        document["verification_policy"]["host_native_required_gates"] = []
+
+    def missing_review_applicability(document: dict[str, Any]) -> None:
+        document.pop("review_applicability")
+
+    def strict_review_not_required(document: dict[str, Any]) -> None:
+        document["review_applicability"]["decision"] = "not_required"
+
+    def missing_review_contract(document: dict[str, Any]) -> None:
+        document.pop("review_contract")
+
+    def missing_review_closure(document: dict[str, Any]) -> None:
+        document["closure_packet"].pop("review_closure")
+
+    def malformed_acceptance_list(document: dict[str, Any]) -> None:
+        document["requirements"][0]["acceptance"] = None
+
+    def malformed_evidence_record(document: dict[str, Any]) -> None:
+        document["requirements"][0]["acceptance"][0]["evidence"].append("not-a-mapping")
+
+    def malformed_review_independence(document: dict[str, Any]) -> None:
+        document["review_contract"]["independence"] = None
+
+    def malformed_host_gate_status(document: dict[str, Any]) -> None:
+        document["closure_packet"]["host_gate_status"] = None
+
+    def malformed_subject_reference(document: dict[str, Any]) -> None:
+        document["review_batches"][1]["subject_refs"].append("not-a-mapping")
+
+    def verified_item_without_evidence(document: dict[str, Any]) -> None:
+        document["requirements"][0]["acceptance"][0]["evidence"] = []
+
+    def verified_journey_without_path(document: dict[str, Any]) -> None:
+        document["journeys"][0]["path_evidence"] = []
+
+    def same_target_representation_mixing(document: dict[str, Any]) -> None:
+        item = document["requirements"][0]["acceptance"][0]
+        item["evidence"].append(
+            {
+                "target": item["id"],
+                "quality": "strong",
+                "normal_gate": True,
+                "proves": "the same target through inline evidence",
+            }
+        )
+
+    def unused_old_current_test_receipt(document: dict[str, Any]) -> None:
+        receipt = copy.deepcopy(document["host_gate_receipts"][0])
+        receipt["id"] = "HGR-OE-UNUSED-OLD"
+        receipt["subject_revision"] = "old-revision"
+        document["host_gate_receipts"].append(receipt)
+
+    def stale_effective_current_test_receipt(document: dict[str, Any]) -> None:
+        document["host_gate_receipts"][0]["subject_revision"] = "old-revision"
+
+    def separate_assignment_reuses_batch(document: dict[str, Any]) -> None:
+        contract = document["review_contract"]
+        contract["batch_combination_policy"] = "separate_required"
+        expected = copy.deepcopy(contract["expected_batches"][0])
+        expected["id"] = "security-review-second"
+        contract["expected_batches"].append(expected)
+
+    def carry_target_missing(document: dict[str, Any]) -> None:
+        document["review_coverage_carry_forward"][0].pop("target_epoch")
+
+    def carry_target_wrong(document: dict[str, Any]) -> None:
+        document["review_coverage_carry_forward"][0]["target_epoch"] = "RE-OE-001"
+
+    def historical_specialist_not_accepted(document: dict[str, Any]) -> None:
+        document["closure_packet"]["review_closure"]["accepted_carry_forward"] = []
+
+    def supplemental_self_check(document: dict[str, Any]) -> None:
+        batch = copy.deepcopy(document["review_batches"][1])
+        batch["id"] = "RB-OE-SELF-CHECK-001"
+        batch["host_kind"] = "supplemental-self-check"
+        batch.pop("host_batch_ref", None)
+        batch["reviewer"]["relationship_to_implementer"] = "self"
+        batch["reviewer"]["reviewer_ref"] = "reviewer:implementer"
+        batch["dimension_coverage"] = [
+            {"dimension": "documentation-quality", "status": "covered", "findings": []}
+        ]
+        document["review_batches"].append(batch)
+        document["closure_packet"]["review_closure"]["accepted_batches"].append(batch["id"])
+
+    def relabel_v04_as_legacy(document: dict[str, Any]) -> None:
+        document["schema_version"] = "0.3.0"
+
+    def inject_v04_section_into_legacy(document: dict[str, Any]) -> None:
+        document["verification_policy"] = {}
+
+    cases = (
+        MutationCase(
+            "missing-strict-policy",
+            "v04",
+            missing_policy,
+            (
+                "invalid-current-test-status-claim",
+                "missing-closed-verification-policy",
+                "unsupported-host-gate-satisfaction",
+            ),
+        ),
+        MutationCase(
+            "cleared-host-gate-floor",
+            "v04",
+            clear_host_gates,
+            (
+                "invalid-current-test-status-claim",
+                "missing-host-native-gate-floor",
+                "unsupported-host-gate-satisfaction",
+            ),
+        ),
+        MutationCase("missing-review-applicability", "v04", missing_review_applicability, ("missing-review-applicability",)),
+        MutationCase("strict-review-not-required", "v04", strict_review_not_required, ("strict-review-not-required",)),
+        MutationCase("missing-required-review-contract", "v04", missing_review_contract, ("missing-required-review-contract",)),
+        MutationCase("missing-required-review-closure", "v04", missing_review_closure, ("missing-required-review-closure",)),
+        MutationCase(
+            "malformed-acceptance-list",
+            "v04",
+            malformed_acceptance_list,
+            ("invalid-nested-list", "unknown-claim-target", "unknown-step-acceptance-item"),
+        ),
+        MutationCase("malformed-evidence-record", "v04", malformed_evidence_record, ("invalid-nested-record",)),
+        MutationCase(
+            "malformed-review-independence",
+            "v04",
+            malformed_review_independence,
+            ("invalid-nested-mapping", "missing-strict-review-independence"),
+        ),
+        MutationCase(
+            "malformed-host-gate-status",
+            "v04",
+            malformed_host_gate_status,
+            ("invalid-current-test-status-claim", "invalid-nested-list", "missing-required-host-gate-receipt"),
+        ),
+        MutationCase("malformed-subject-reference", "v04", malformed_subject_reference, ("invalid-nested-record",)),
+        MutationCase(
+            "verified-item-without-evidence",
+            "v04",
+            verified_item_without_evidence,
+            ("verified-item-without-strong-evidence",),
+        ),
+        MutationCase(
+            "verified-journey-without-path",
+            "v04",
+            verified_journey_without_path,
+            ("verified-journey-without-strong-path-evidence",),
+        ),
+        MutationCase(
+            "same-target-representation-mixing",
+            "v04",
+            same_target_representation_mixing,
+            ("ambiguous-target-evidence-representation",),
+        ),
+        MutationCase(
+            "unused-old-current-test-receipt",
+            "v04",
+            unused_old_current_test_receipt,
+            ("invalid-current-test-status-claim",),
+        ),
+        MutationCase(
+            "stale-effective-current-test-receipt",
+            "v04",
+            stale_effective_current_test_receipt,
+            ("host-gate-receipt-mismatch", "invalid-current-test-status-claim"),
+        ),
+        MutationCase(
+            "separate-assignment-reuses-batch",
+            "v04",
+            separate_assignment_reuses_batch,
+            ("separate-review-batches-not-distinct",),
+        ),
+        MutationCase(
+            "carry-target-missing",
+            "v04",
+            carry_target_missing,
+            (
+                "incomplete-review-closure-coverage",
+                "missing-accepted-expected-review-batch",
+                "missing-review-carry-forward-target-epoch",
+                "review-closure-lacks-independence",
+            ),
+        ),
+        MutationCase(
+            "carry-target-wrong",
+            "v04",
+            carry_target_wrong,
+            (
+                "accepted-review-carry-forward-wrong-epoch",
+                "incomplete-review-closure-coverage",
+                "missing-accepted-expected-review-batch",
+                "review-carry-forward-target-revision-mismatch",
+                "review-closure-lacks-independence",
+            ),
+        ),
+        MutationCase(
+            "historical-specialist-not-accepted",
+            "v04",
+            historical_specialist_not_accepted,
+            (
+                "incomplete-review-closure-coverage",
+                "missing-accepted-expected-review-batch",
+                "review-closure-lacks-independence",
+            ),
+        ),
+        MutationCase("supplemental-self-check", "v04", supplemental_self_check, ()),
+        MutationCase("relabel-v04-as-v03", "v04", relabel_v04_as_legacy, ("legacy-schema-has-v04-sections",)),
+        MutationCase(
+            "inject-v04-section-into-legacy",
+            "legacy",
+            inject_v04_section_into_legacy,
+            ("legacy-schema-has-v04-sections",),
+        ),
+    )
+
+    passed = 0
+    failures = 0
+    for case in cases:
+        document = copy.deepcopy(sources[case.source])
+        case.mutate(document)
+        try:
+            actual_codes = tuple(sorted(diagnostic.code for diagnostic in validate_document(document)))
+        except Exception as error:
+            failures += 1
+            print(f"FAIL mutation/{case.name}: validator raised {type(error).__name__}: {error}")
+            continue
+        expected_codes = tuple(sorted(case.expected_codes))
+        if actual_codes == expected_codes:
+            passed += 1
+            print(f"PASS mutation/{case.name}: diagnostics={list(actual_codes)!r}")
+        else:
+            failures += 1
+            print(
+                f"FAIL mutation/{case.name}: expected={list(expected_codes)!r}; "
+                f"actual={list(actual_codes)!r}"
+            )
+
+    print(f"schema mutations: {passed} passed, {failures} failures")
+    return 0 if failures == 0 else 1
+
+
 def main(argv: Sequence[str]) -> int:
     if argv:
         print("usage: validate-schema-examples.py", file=sys.stderr)
         return 2
-    return run_fixture_contract(Path(__file__).resolve().parent.parent)
+    root = Path(__file__).resolve().parent.parent
+    fixture_status = run_fixture_contract(root)
+    mutation_status = run_mutation_contract(root)
+    return 0 if fixture_status == 0 and mutation_status == 0 else 1
 
 
 if __name__ == "__main__":

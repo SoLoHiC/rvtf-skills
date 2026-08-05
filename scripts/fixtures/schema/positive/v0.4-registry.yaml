@@ -259,9 +259,6 @@ review_contract:
     - id: security-review
       host_kind: specialist-review
       dimensions:
-        - requirement-fidelity
-        - impact-and-ownership
-        - verification-and-closure
         - trust-security-and-privacy
 
 review_epochs:

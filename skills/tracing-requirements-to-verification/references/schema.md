@@ -12,6 +12,13 @@ defined later in this reference. Version 0.4 does not move canonical Acceptance
 Items out of `requirements[].acceptance[]`, replace Journey path truth, or
 reinterpret host status as delivery disposition.
 
+A 0.3 document is rejected when it carries 0.4-only top-level sections:
+`delivery_scopes`, `delivery_groups`, `evidence_artifacts`, `evidence_claims`,
+`evidence_validity_assessments`, `verification_policy`, `host_gate_receipts`,
+`review_impact_assessments`, `review_coverage_carry_forward`, or
+`closure_packet`. Legacy 0.3 review dimensions remain a list; 0.4 review
+dimensions use the mapping representation shown below.
+
 A 0.4 artifact may be mixed: one target may keep legacy inline evidence while a
 different target uses `evidence_ref` and `evidence_claims`. Do not give one
 target both mutable inline and registry truth. The target-specific claim is the
@@ -684,6 +691,14 @@ Requirement statuses. A valid claim requires a passed artifact and an actual
 target of the declared kind. Item and Journey targets remain separate, and each
 inline `evidence_ref` must resolve to a claim for that exact target.
 
+A `verified` Item needs either target-matching inline evidence with
+`quality: strong`, `normal_gate: true`, and a non-empty `proves`, or a matching
+valid registry claim with those gate/proof properties and a passed artifact. A
+`verified` Journey similarly needs one strong inline path or one valid Journey
+claim that proves order and outcome and covers every local Step. One target may
+not mix inline truth and `evidence_ref`; different targets may choose different
+representations.
+
 When `subject_revision` and `checked_against_revision` differ, standard and
 strict reuse requires the referenced assessment shown above. It must match the
 claim and from/to revisions and explicitly compare the target, verifier,
@@ -721,6 +736,10 @@ host_gate_receipts:
 A closure may mark a required host gate `satisfied` only through a matching
 fresh receipt, gate reference, lifecycle boundary, freshness, and subject
 revision. A valid older claim cannot manufacture a current test-status claim.
+`current_test_status_claim: passed` is valid only when that exact receipt is
+referenced by the closure's satisfied effective host gate at the current
+revision; unused, historical, failed, wrong-boundary, and stale receipts do not
+prove current tests.
 
 ## Additive 0.4 Verification Policy
 
@@ -753,6 +772,10 @@ effective gate set is always the union of applicable RVTF commands and
 `host_native_required_gates`; reuse cannot erase the host floor. Completion is
 a semantic audit, not an instruction to run every repository suite at every
 Unit. A host-declared fresh or full gate remains mandatory at its boundary.
+Every closed 0.4 standard/strict packet requires this policy, non-empty command
+references in all four tiers, and at least one
+`host_native_required_gates` entry. Clearing or omitting the host floor cannot
+make an otherwise closed packet valid.
 
 ## Additive 0.4 Review Cadence And Carry-Forward
 
@@ -805,6 +828,16 @@ explicit; before the parent batch actually runs, record
 remove strict independence, specialist expertise, segregation requirements, or
 `host_native_required_batches`.
 
+For a closed 0.4 standard/strict packet, `review_applicability` is mandatory.
+`decision: required` requires a matching `review_contract` plus a closed,
+resolving epoch receipt. Contract `expected_batches[].host_kind` and
+`expected_batches[].dimensions` match only complete batches or valid
+carry-forward explicitly accepted by the current closure; historical or
+unaccepted batches do not satisfy the assignment. `separate_required` consumes
+distinct accepted source batches, while `combined_allowed` may reuse one
+qualified combined batch. Independence is evaluated per required dimension, so
+a supplemental self-check does not poison independently covered required work.
+
 A scope in `review_state: pending_at_parent` remains `incomplete` when formal
 parent review is part of its closure contract. Change the state to
 `covered_at_parent` only after a closed epoch and its accepted batch or assessed
@@ -816,6 +849,9 @@ Carry-forward is a new assessment linking from/to revisions; it agrees with an
 accepted impact assessment and carries only dimensions actually covered by the
 source batch. Changed dimensions receive a bounded delta batch. If unchanged
 impact cannot be established, create that batch or use controlled reopen.
+Every carry-forward names `target_epoch`; an accepted carry-forward targets the
+closure epoch, and `to_revision` equals both that epoch's revision and
+`closure_packet.subject_revision`.
 
 ## Additive 0.4 Closure Continuation
 
