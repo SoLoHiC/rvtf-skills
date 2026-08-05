@@ -39,6 +39,34 @@ requirements:
     status: verified
     gaps: []
 
+  - id: LEGACY-RECOVERY-001
+    capability: legacy recovery evidence
+    type: behavior
+    source: docs/design/legacy-contract.md#recovery
+    validity:
+      status: accepted
+      owner: fixture-owner
+      rationale: Recovery remains required but its evidence is deliberately deferred.
+    statement: A legacy trace can recover from an interrupted run.
+    acceptance:
+      - id: LEGACY-RECOVERY-001-AI-001
+        criterion: Recovery resumes from the recorded checkpoint and reaches the accepted result.
+        source_ref:
+          path: docs/design/legacy-contract.md
+          anchor: recovery
+          revision: sha256:legacy-contract-v1
+        verification:
+          method: end-to-end-test
+          command: python3 tests/legacy_recovery.py
+          expected: exits 0 with the recovered result
+        status: deferred
+        evidence: []
+        gaps:
+          - GAP-LEGACY-001
+    status: deferred
+    gaps:
+      - GAP-LEGACY-001
+
 journey_applicability:
   scope_ref: fixture:v0.3-inline
   decision: required
@@ -70,6 +98,198 @@ journeys:
     status: verified
     gaps: []
 
-gaps: []
+  - id: J-LEGACY-RECOVERY-001
+    name: Recover the legacy trace path
+    actor: fixture-runner
+    goal: Resume an interrupted legacy trace.
+    expected_outcome: The resumed run reaches the accepted legacy result.
+    steps:
+      - id: J-LEGACY-RECOVERY-001-S1
+        observable_outcome: The runner resumes from the recorded checkpoint.
+        acceptance_item_ids:
+          - LEGACY-RECOVERY-001-AI-001
+    path_evidence: []
+    status: deferred
+    gaps:
+      - GAP-LEGACY-001
+
+gaps:
+  - id: GAP-LEGACY-001
+    requirement: LEGACY-RECOVERY-001
+    acceptance_item: LEGACY-RECOVERY-001-AI-001
+    journey: J-LEGACY-RECOVERY-001
+    journey_step: J-LEGACY-RECOVERY-001-S1
+    type: evidence-gap
+    summary: The recovery Item and connected Journey path lack fresh evidence.
+    impact: Recovery remains deferred and cannot be represented as verified.
+    decision: deferred
+    owner: next-release-planning
+    close_condition: Record strong inline Item evidence and inline path evidence for recovery.
+
+review_applicability:
+  scope_ref: fixture:v0.3-inline
+  decision: required
+  mode: bounded
+  rationale: Review coverage and closure are part of this legacy compatibility artifact.
+
+review_contract:
+  id: RC-LEGACY-001
+  scope_ref: fixture:v0.3-inline
+  impact_surface:
+    states:
+      - legacy-trace-result
+    interfaces:
+      - legacy-trace-command
+    writers:
+      - fixture-runner
+    readers:
+      - closure-auditor
+    callers:
+      - legacy-validation
+    consumers:
+      - closure-report
+  dimensions:
+    - id: requirement-fidelity
+      applicability: required
+      requirements:
+        - LEGACY-TRACE-001
+        - LEGACY-RECOVERY-001
+    - id: impact-and-ownership
+      applicability: required
+      requirements:
+        - LEGACY-TRACE-001
+        - LEGACY-RECOVERY-001
+    - id: verification-and-closure
+      applicability: required
+      requirements:
+        - LEGACY-TRACE-001
+        - LEGACY-RECOVERY-001
+  expected_batches:
+    - id: requirements-review
+      host_kind: requirement-coverage-review
+      dimensions:
+        - requirement-fidelity
+        - impact-and-ownership
+    - id: closure-review
+      host_kind: verification-gap-review
+      dimensions:
+        - verification-and-closure
+  exclusions:
+    - Recovery implementation is deferred; review checks that its gap remains explicit.
+
+review_epochs:
+  - id: RE-LEGACY-001
+    contract: RC-LEGACY-001
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: legacy123
+    status: closed
+
+review_batches:
+  - id: RB-LEGACY-REQ-001
+    epoch: RE-LEGACY-001
+    host_kind: requirement-coverage-review
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: legacy123
+    reviewer:
+      role: requirements-reviewer
+      relationship_to_implementer: independent
+      reviewer_ref: reviewer:legacy-requirements
+    dimension_coverage:
+      - dimension: requirement-fidelity
+        status: covered
+        findings: []
+      - dimension: impact-and-ownership
+        status: covered
+        findings: []
+    coverage_status: complete
+    limitations: []
+
+  - id: RB-LEGACY-CLOSE-001
+    epoch: RE-LEGACY-001
+    host_kind: verification-gap-review
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: legacy123
+    reviewer:
+      role: closure-reviewer
+      relationship_to_implementer: independent
+      reviewer_ref: reviewer:legacy-closure
+    dimension_coverage:
+      - dimension: verification-and-closure
+        status: covered
+        findings: []
+    coverage_status: complete
+    limitations:
+      - Recovery proof remains an explicitly owned deferred evidence gap.
+
+review_freeze:
+  id: RFR-LEGACY-001
+  epoch: RE-LEGACY-001
+  subject_refs:
+    - kind: git-commit
+      ref: repository
+      revision: legacy123
+  accepted_batches:
+    - RB-LEGACY-REQ-001
+    - RB-LEGACY-CLOSE-001
+  frozen_findings: []
+  decision_owner: fixture-owner
+  frozen_at: 2026-08-05T09:00:00Z
+
+remediation_cycles: []
+review_reopens: []
+
 review_findings: []
 scope_amendments: []
+
+closure:
+  scope: fixture:v0.3-inline
+  status: complete_with_deferred_gaps
+  review_closure:
+    epoch: RE-LEGACY-001
+    status: closed
+    remaining_late_findings: []
+  verified:
+    - LEGACY-TRACE-001
+  deferred:
+    - GAP-LEGACY-001
+  blocked: []
+  rejected: []
+  requirements:
+    verified:
+      - LEGACY-TRACE-001
+    deferred:
+      - LEGACY-RECOVERY-001
+    blocked: []
+    rejected: []
+  acceptance_items:
+    verified:
+      - LEGACY-TRACE-001-AI-001
+    deferred:
+      - LEGACY-RECOVERY-001-AI-001
+    blocked: []
+    rejected: []
+  journeys:
+    verified:
+      - J-LEGACY-TRACE-001
+    deferred:
+      - J-LEGACY-RECOVERY-001
+    blocked: []
+    rejected: []
+  gaps:
+    deferred:
+      - GAP-LEGACY-001
+  accepted_amendments: []
+  verification_runs:
+    - command: python3 tests/legacy_trace.py
+      result: pass
+      date: 2026-08-05
+  residual_risk:
+    - Recovery remains unavailable until the deferred evidence gap closes.
+  next_phase_entry:
+    - The next release owns GAP-LEGACY-001 and its recovery evidence.

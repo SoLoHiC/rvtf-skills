@@ -219,6 +219,17 @@ verification_policy:
         - test:repository-full
   reuse_policy: reuse_valid_claims_then_run_missing_gates
 
+host_gate_receipts:
+  - id: HGR-OE-CURRENT-TREE-001
+    gate_ref: host:test-current-tree
+    lifecycle_boundary: task_completion
+    subject_revision: def456
+    executed_at: 2026-08-05T11:30:00Z
+    command_signature: python3 tests/registry_contract.py --current-tree
+    freshness: current_tree
+    status: passed
+    current_test_status_claim: passed
+
 review_applicability:
   scope_ref: milestone:operational-economy
   decision: required
@@ -262,6 +273,15 @@ review_epochs:
         revision: abc123
     status: closed
 
+  - id: RE-OE-002
+    contract: RC-OE-001
+    prior_epoch: RE-OE-001
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: def456
+    status: closed
+
 review_batches:
   - id: RB-OE-SECURITY-001
     epoch: RE-OE-001
@@ -290,6 +310,31 @@ review_batches:
     coverage_status: complete
     limitations: []
 
+  - id: RB-OE-HOST-TASK-001
+    epoch: RE-OE-002
+    host_kind: task-review
+    host_batch_ref: host:task-review
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: def456
+    reviewer:
+      role: task-reviewer
+      relationship_to_implementer: independent
+      reviewer_ref: reviewer:task-001
+    dimension_coverage:
+      - dimension: requirement-fidelity
+        status: covered
+        findings: []
+      - dimension: impact-and-ownership
+        status: covered
+        findings: []
+      - dimension: verification-and-closure
+        status: covered
+        findings: []
+    coverage_status: complete
+    limitations: []
+
 review_impact_assessments:
   - id: RIA-OE-001
     source_batch_ref: RB-OE-SECURITY-001
@@ -306,6 +351,7 @@ review_impact_assessments:
 review_coverage_carry_forward:
   - id: RCF-OE-001
     source_batch_ref: RB-OE-SECURITY-001
+    target_epoch: RE-OE-002
     from_revision: abc123
     to_revision: def456
     unchanged_dimensions:
@@ -316,7 +362,25 @@ review_coverage_carry_forward:
 
 closure_packet:
   scope_ref: unit:evidence-contract
+  subject_revision: def456
   disposition: complete
+  host_gate_status:
+    - gate_ref: host:test-current-tree
+      receipt_ref: HGR-OE-CURRENT-TREE-001
+      status: satisfied
+      subject_revision: def456
+  review_closure:
+    epoch: RE-OE-002
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: def456
+    status: closed
+    accepted_batches:
+      - RB-OE-HOST-TASK-001
+    accepted_carry_forward:
+      - RCF-OE-001
+    remaining_late_findings: []
   continuation:
     parent_scope_ref: milestone:operational-economy
     parent_disposition: incomplete

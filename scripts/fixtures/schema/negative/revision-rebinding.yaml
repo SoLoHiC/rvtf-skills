@@ -74,7 +74,7 @@ review_batches:
 review_impact_assessments:
   - id: RIA-REBIND-001
     source_batch_ref: RB-REBIND-001
-    from_revision: silently-rebound456
+    from_revision: historical123
     to_revision: current789
     changed_surface:
       - documentation-only

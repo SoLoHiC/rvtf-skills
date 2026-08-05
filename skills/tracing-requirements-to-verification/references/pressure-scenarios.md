@@ -687,6 +687,396 @@ These are RED receipts even where the prose conclusion was correct: the
 unchanged schema and adapters did not contain the registry, validity, hierarchy,
 policy, carry-forward, or continuation records required to repeat the decision.
 
+### Per-Scenario Baseline Receipts 27-45
+
+The `decisive_observed_response` fields below are concise paraphrases of the
+fresh evaluators' recorded conclusions unless an excerpt is explicitly marked.
+They are not reconstructed verbatim quotations. `a9cd8a5` is the packaged
+`0.3.0` Skill baseline. The Task 2 base `64d757f` changed only design and plan
+documents after that baseline, so its five Skills remained unchanged.
+
+```yaml
+baseline_receipts:
+  - scenario_number: 27
+    scenario_id: shared-artifact-across-many-items
+    prompt_ref: scenario:27:prompt
+    concise_prompt: One browser suite produces distinct results for 95 Items; decide whether proof can be shared without an untargeted bulk promotion.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator could support 95 Items only by repeating inline target and proves records; it had no separate artifact and claim registry or deduplication model.
+    expected_behavior_ref:
+      scenario: scenario:27:expected-rvtf-behavior
+      requirements: [OE-EVIDENCE-001, OE-EVIDENCE-002]
+    result_classification: fail
+
+  - scenario_number: 28
+    scenario_id: unrelated-revision-change
+    prompt_ref: scenario:28:prompt
+    concise_prompt: Only unrelated documentation changes between the evidence revision and current revision.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase_with_recorded_excerpt
+    decisive_observed_response: The evaluator said the old evidence might be `still applicable`, but provided no canonical assessment, comparison basis, fingerprint explanation, or audit record.
+    expected_behavior_ref:
+      scenario: scenario:28:expected-rvtf-behavior
+      requirements: [OE-EVIDENCE-003, OE-VERIFY-003]
+    result_classification: ambiguous
+
+  - scenario_number: 29
+    scenario_id: targeted-invalidation
+    prompt_ref: scenario:29:prompt
+    concise_prompt: A changed fixture affects only 5 claims produced by a shared verifier.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator reasoned toward targeted invalidation manually, but the baseline had no claim validity status, dependency mapping, or supersession record to reproduce it.
+    expected_behavior_ref:
+      scenario: scenario:29:expected-rvtf-behavior
+      requirements: [OE-EVIDENCE-004]
+    result_classification: accidental_pass
+
+  - scenario_number: 30
+    scenario_id: verifier-revision-change
+    prompt_ref: scenario:30:prompt
+    concise_prompt: A verifier adds an assertion that the old passing receipt never checked.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator concluded that affected old proof should be invalidated and rerun, even though the baseline did not model verifier revision.
+    expected_behavior_ref:
+      scenario: scenario:30:expected-rvtf-behavior
+      requirements: [OE-EVIDENCE-003]
+    result_classification: accidental_pass
+
+  - scenario_number: 31
+    scenario_id: completion-gate-is-not-full-suite
+    prompt_ref: scenario:31:prompt
+    concise_prompt: Unit proof is valid while integration and full-suite policy applies only at parent boundaries.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: Unit, Milestone, and Goal tiers and host-policy precedence were undefined, leaving command selection at the Completion Gate unspecified.
+    expected_behavior_ref:
+      scenario: scenario:31:expected-rvtf-behavior
+      requirements: [OE-VERIFY-001, OE-VERIFY-002]
+    result_classification: fail
+
+  - scenario_number: 32
+    scenario_id: failed-full-suite-isolation
+    prompt_ref: scenario:32:prompt
+    concise_prompt: A required full suite fails on an apparently unrelated flaky test.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator kept the failed suite visible, but the baseline provided no repeatable retry, quarantine, required-gate, or escalation handling.
+    expected_behavior_ref:
+      scenario: scenario:32:expected-rvtf-behavior
+      requirements: [OE-VERIFY-003]
+    result_classification: ambiguous
+
+  - scenario_number: 33
+    scenario_id: parent-goal-continuation
+    prompt_ref: scenario:33:prompt
+    concise_prompt: A Unit closes while two unblocked Milestones remain under the parent Goal.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator approximated continuation with next-phase entry conditions and gap ownership and correctly avoided invoking a workflow, but had no parent scope or continuation artifact.
+    expected_behavior_ref:
+      scenario: scenario:33:expected-rvtf-behavior
+      requirements: [OE-SCOPE-002, OE-CONTINUE-001, OE-CONTINUE-002]
+    result_classification: ambiguous
+
+  - scenario_number: 34
+    scenario_id: all-remaining-work-blocked
+    prompt_ref: scenario:34:prompt
+    concise_prompt: The current Unit closes while every remaining required Milestone awaits an external owner.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The baseline had no parent inventory, blocked-child aggregation, continuation stop basis, or separate host archive status with which to represent the case.
+    expected_behavior_ref:
+      scenario: scenario:34:expected-rvtf-behavior
+      requirements: [OE-SCOPE-003, OE-SCOPE-004, OE-CONTINUE-001]
+    result_classification: fail
+
+  - scenario_number: 35
+    scenario_id: milestone-parent-review-coverage
+    prompt_ref: scenario:35:prompt
+    concise_prompt: Five Units rely on a future Milestone review under parent coverage.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator correctly refused to use a future parent review as current closure evidence, but could not record pending_at_parent or explicit covered child references.
+    expected_behavior_ref:
+      scenario: scenario:35:expected-rvtf-behavior
+      requirements: [OE-REVIEW-001]
+    result_classification: accidental_pass
+
+  - scenario_number: 36
+    scenario_id: combined-standard-review
+    prompt_ref: scenario:36:prompt
+    concise_prompt: One qualified reviewer can cover all required dimensions in a standard scope.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator allowed one batch to cover multiple dimensions, but the baseline had no batch-combination or specialist qualification policy to make that choice repeatable.
+    expected_behavior_ref:
+      scenario: scenario:36:expected-rvtf-behavior
+      requirements: [OE-REVIEW-002, OE-REVIEW-003]
+    result_classification: accidental_pass
+
+  - scenario_number: 37
+    scenario_id: required-specialist-review
+    prompt_ref: scenario:37:prompt
+    concise_prompt: Strict authorization and migration work requires expertise the general reviewer lacks.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The baseline could require strict independence generally, but did not define specialist qualification or when combination must be refused.
+    expected_behavior_ref:
+      scenario: scenario:37:expected-rvtf-behavior
+      requirements: [OE-REVIEW-003]
+    result_classification: fail
+
+  - scenario_number: 38
+    scenario_id: delta-re-review
+    prompt_ref: scenario:38:prompt
+    concise_prompt: Performance remediation leaves previously accepted security coverage unchanged.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator correctly kept the historical batch revision unchanged, but the baseline had no impact-assessed carry-forward or delta-review record.
+    expected_behavior_ref:
+      scenario: scenario:38:expected-rvtf-behavior
+      requirements: [OE-REVIEW-004]
+    result_classification: accidental_pass
+
+  - scenario_number: 39
+    scenario_id: journey-path-regression
+    prompt_ref: scenario:39:prompt
+    concise_prompt: Item proof stays valid while the only Journey path proof becomes invalid.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions: []
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator targeted the Journey and did not automatically reopen review, but the baseline had no independent claim-validity or invalidation record.
+    expected_behavior_ref:
+      scenario: scenario:39:expected-rvtf-behavior
+      requirements: [OE-BOUNDARY-001, OE-EVIDENCE-004, OE-REVIEW-004]
+    result_classification: accidental_pass
+
+  - scenario_number: 40
+    scenario_id: current-superpowers-review-shape
+    prompt_ref: scenario:40:prompt
+    concise_prompt: Current Superpowers SDD has one combined task reviewer and one final whole-branch review.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: superpowers
+        branch: main
+        revision: 44c9b2d6e889982ac18c27d05a19fefe335194e1
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator inferred one combined task reviewer plus final branch review and added no RVTF reviewer, but the baseline adapter lacked task and branch epoch mapping.
+    expected_behavior_ref:
+      scenario: scenario:40:expected-rvtf-behavior
+      requirements: [OE-REVIEW-002, OE-REVIEW-003, OE-ADAPTER-001]
+    result_classification: accidental_pass
+
+  - scenario_number: 41
+    scenario_id: no-progress-iteration
+    prompt_ref: scenario:41:prompt
+    concise_prompt: Repeated adapter iterations change no delivery or evidence disposition.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: superpowers
+        branch: main
+        revision: 44c9b2d6e889982ac18c27d05a19fefe335194e1
+      - host: gsd-core
+        branch: next
+        revision: b5ce72f72992e46b31c2b02c8275cdd858a8fdce
+      - host: agent-skills
+        branch: main
+        revision: 7829ffd90d973b6325f5f12f1b1226dcace74443
+      - host: bmad-method
+        branch: main
+        revision: 116491165d850e9d074554c6271f452363bb607a
+    observed_response_kind: paraphrase
+    decisive_observed_response: The baseline adapters had no operational-economy warning, repeat rationale, or termination artifact for a no-progress loop.
+    expected_behavior_ref:
+      scenario: scenario:41:expected-rvtf-behavior
+      requirements: [OE-BOUNDARY-001, OE-ADAPTER-001]
+    result_classification: fail
+
+  - scenario_number: 42
+    scenario_id: host-native-verification-floor
+    prompt_ref: scenario:42:prompt
+    concise_prompt: A reusable claim remains valid while each named host requires a fresh current-boundary gate.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: superpowers
+        branch: main
+        revision: 44c9b2d6e889982ac18c27d05a19fefe335194e1
+      - host: gsd-core
+        branch: next
+        revision: b5ce72f72992e46b31c2b02c8275cdd858a8fdce
+      - host: agent-skills
+        branch: main
+        revision: 7829ffd90d973b6325f5f12f1b1226dcace74443
+      - host: bmad-method
+        branch: main
+        revision: 116491165d850e9d074554c6271f452363bb607a
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator kept host gates authoritative, but the baseline had no separate claim-validity, current host-gate, and current-test-status records.
+    expected_behavior_ref:
+      scenario: scenario:42:expected-rvtf-behavior
+      requirements: [OE-BOUNDARY-002, OE-VERIFY-003, OE-ADAPTER-001]
+    result_classification: accidental_pass
+
+  - scenario_number: 43
+    scenario_id: orthogonal-group-mapping
+    prompt_ref: scenario:43:prompt
+    concise_prompt: Distinguish GSD scope containment from Wave grouping and a BMAD Story from its Build run.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: gsd-core
+        branch: next
+        revision: b5ce72f72992e46b31c2b02c8275cdd858a8fdce
+      - host: bmad-method
+        branch: main
+        revision: 116491165d850e9d074554c6271f452363bb607a
+    observed_response_kind: paraphrase
+    decisive_observed_response: The baseline adapters had no GSD Milestone, Phase, PLAN, and Wave hierarchy/group mapping or BMAD Story and Build-run separation.
+    expected_behavior_ref:
+      scenario: scenario:43:expected-rvtf-behavior
+      requirements: [OE-SCOPE-001, OE-SCOPE-002, OE-ADAPTER-001]
+    result_classification: fail
+
+  - scenario_number: 44
+    scenario_id: host-continuation-capability
+    prompt_ref: scenario:44:prompt
+    concise_prompt: Record continuation authority across GSD, Superpowers SDD, Agent Skills build, and BMAD build-auto.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: superpowers
+        branch: main
+        revision: 44c9b2d6e889982ac18c27d05a19fefe335194e1
+      - host: gsd-core
+        branch: next
+        revision: b5ce72f72992e46b31c2b02c8275cdd858a8fdce
+      - host: agent-skills
+        branch: main
+        revision: 7829ffd90d973b6325f5f12f1b1226dcace74443
+      - host: bmad-method
+        branch: main
+        revision: 116491165d850e9d074554c6271f452363bb607a
+    observed_response_kind: paraphrase
+    decisive_observed_response: The evaluator correctly kept RVTF from invoking commands or stories, but the baseline had no host-specific continuation mode, authority, or resume locator.
+    expected_behavior_ref:
+      scenario: scenario:44:expected-rvtf-behavior
+      requirements: [OE-CONTINUE-001, OE-CONTINUE-002, OE-ADAPTER-001]
+    result_classification: accidental_pass
+
+  - scenario_number: 45
+    scenario_id: agent-skills-ship-boundary
+    prompt_ref: scenario:45:prompt
+    concise_prompt: A non-trivial production-bound change reaches Agent Skills ship and receives GO.
+    baseline_subject:
+      repo_revision: a9cd8a560821cd90468254a7d91cdbcb6802d4d3
+      package_version: 0.3.0
+      task_base_revision: 64d757f3454e00d4b128fedda8be18c4093b8f08
+      task_base_skill_state: unchanged_from_baseline
+    pinned_host_revisions:
+      - host: agent-skills
+        branch: main
+        revision: 7829ffd90d973b6325f5f12f1b1226dcace74443
+    observed_response_kind: paraphrase
+    decisive_observed_response: The baseline adapter did not model the three ship specialist batches or distinguish GO from deployed, post-launch verified, and release Goal closure.
+    expected_behavior_ref:
+      scenario: scenario:45:expected-rvtf-behavior
+      requirements: [OE-BOUNDARY-002, OE-REVIEW-003, OE-ADAPTER-001]
+    result_classification: fail
+```
+
+Future deterministic fixture validation must treat each negative fixture's
+single top-level `# expected-error: <stable-code>` comment as an exact diagnostic
+contract. The validator must emit that code exactly once, reject any negative
+fixture that also produces an unexpected diagnostic, reject a negative fixture
+that produces no diagnostic, and reject any positive fixture that produces a
+diagnostic. Task 2 defines this contract but intentionally does not implement the
+validator.
+
 ## Scenario 27: Shared Artifact Across Many Items
 
 Prompt:
