@@ -1,0 +1,93 @@
+schema_version: "0.4.0"
+scope:
+  id: fixture:mixed-representation
+  title: Mixed inline and registry evidence
+  mode: lite
+  sources:
+    - docs/design/mixed-evidence.md
+
+requirements:
+  - id: MIXED-EVIDENCE-001
+    capability: additive evidence compatibility
+    type: behavior
+    source: docs/design/mixed-evidence.md#compatibility
+    validity:
+      status: accepted
+      owner: fixture-owner
+      rationale: Existing inline evidence can coexist with registry claims.
+    statement: Different targets may use legacy inline and registry evidence in one artifact.
+    acceptance:
+      - id: MIXED-EVIDENCE-001-AI-001
+        criterion: The legacy target retains inline evidence.
+        source_ref:
+          path: docs/design/mixed-evidence.md
+          anchor: inline-target
+          revision: sha256:mixed-v1
+        verification:
+          method: automated-test
+          command: python3 tests/mixed_evidence.py --target inline
+          expected: exits 0
+        status: verified
+        evidence:
+          - artifact: artifacts/mixed-inline.json
+            subject_revision: mixed123
+            quality: strong
+            target: MIXED-EVIDENCE-001-AI-001
+            proves: The legacy target retains inline evidence.
+            normal_gate: true
+        gaps: []
+
+      - id: MIXED-EVIDENCE-001-AI-002
+        criterion: The new target resolves a target-specific registry claim.
+        source_ref:
+          path: docs/design/mixed-evidence.md
+          anchor: registry-target
+          revision: sha256:mixed-v1
+        verification:
+          method: automated-test
+          command: python3 tests/mixed_evidence.py --target registry
+          expected: exits 0
+        status: verified
+        evidence:
+          - evidence_ref: EC-MIXED-REGISTRY-001
+        gaps: []
+    status: verified
+    gaps: []
+
+journey_applicability:
+  scope_ref: fixture:mixed-representation
+  decision: not_required
+  rationale: The two exact Item checks have no ordered or causal path.
+
+journeys: []
+
+evidence_artifacts:
+  - id: EA-MIXED-REGISTRY-001
+    kind: test-receipt
+    locator: artifacts/mixed-registry.json
+    generated_at: 2026-08-05T10:00:00Z
+    subject_revision: mixed123
+    verifier_ref: test:mixed-registry
+    verifier_revision: sha256:mixed-verifier-v1
+    dependency_fingerprint: sha256:mixed-inputs-v1
+    environment_fingerprint: python3.13-pyyaml6-linux
+    command_signature: python3 tests/mixed_evidence.py --target registry
+    result: passed
+
+evidence_claims:
+  - id: EC-MIXED-REGISTRY-001
+    artifact_ref: EA-MIXED-REGISTRY-001
+    target_kind: acceptance_item
+    target_ref: MIXED-EVIDENCE-001-AI-002
+    proves: The new target resolves a target-specific registry claim.
+    coverage:
+      - registry-target
+    normal_gate: true
+    validity:
+      status: valid
+      checked_against_revision: mixed123
+
+evidence_validity_assessments: []
+gaps: []
+review_findings: []
+scope_amendments: []

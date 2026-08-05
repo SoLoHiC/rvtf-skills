@@ -1,0 +1,40 @@
+# expected-error: blocked-required-child-closes-parent
+schema_version: "0.4.0"
+scope:
+  id: fixture:blocked-parent-complete
+  title: Complete parent with a blocked required child
+  mode: lite
+  sources:
+    - docs/design/negative-fixtures.md
+
+delivery_scopes:
+  - scope_ref: goal:blocked-parent
+    scope_kind: goal
+    host_kind: release-objective
+    host_ref: host-goal:blocked-parent
+    required_child_inventory_revision: sha256:blocked-parent-inventory-v1
+    required_child_scope_refs:
+      - milestone:blocked-child
+    host_status: archived
+    disposition: complete
+
+  - scope_ref: milestone:blocked-child
+    scope_kind: milestone
+    host_kind: implementation-phase
+    parent_scope_ref: goal:blocked-parent
+    required_for_parent: true
+    required_child_inventory_revision: sha256:blocked-child-inventory-v1
+    required_child_scope_refs: []
+    host_status: blocked
+    disposition: blocked
+
+delivery_groups: []
+requirements: []
+journey_applicability:
+  scope_ref: fixture:blocked-parent-complete
+  decision: not_required
+  rationale: This fixture exercises required-child closure aggregation only.
+journeys: []
+gaps: []
+review_findings: []
+scope_amendments: []

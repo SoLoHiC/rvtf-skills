@@ -1,0 +1,28 @@
+# expected-error: unknown-parent-scope
+schema_version: "0.4.0"
+scope:
+  id: fixture:invalid-parent
+  title: Unknown parent scope reference
+  mode: lite
+  sources:
+    - docs/design/negative-fixtures.md
+
+delivery_scopes:
+  - scope_ref: unit:orphaned-contract
+    scope_kind: unit
+    host_kind: task
+    parent_scope_ref: milestone:missing-parent
+    required_for_parent: true
+    host_status: implemented
+    disposition: incomplete
+
+delivery_groups: []
+requirements: []
+journey_applicability:
+  scope_ref: fixture:invalid-parent
+  decision: not_required
+  rationale: This fixture exercises scope containment only.
+journeys: []
+gaps: []
+review_findings: []
+scope_amendments: []

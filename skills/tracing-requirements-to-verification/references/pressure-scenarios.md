@@ -626,3 +626,412 @@ adapters. No agent read this file before answering.
 | 17 | Scoped Agent Skills review governance to the increment rather than the whole release. | pass |
 | 18 | Preserved GSD goal-backward validation and refused shipping from review closure alone. | pass |
 | 19 | Preserved BMAD edge-case discovery and reopened only when trace impact or an accepted amendment blocked closure. | pass |
+
+## Operational Economy Baseline Observed 2026-08-05
+
+Three fresh baseline evaluations exercised the unchanged `0.3.0` core or the
+named baseline adapter. They sometimes reached the correct conservative delivery
+decision, but the baseline lacked the repeatable artifact contracts needed to
+audit or reproduce that decision.
+
+Fresh core evaluator A observed:
+
+- One shared suite could support 95 Items only by repeating inline `target` and
+  `proves` records. The baseline had no separate artifact/claim registry,
+  selector, or deduplication model.
+- The evaluator said old evidence might be "still applicable," which was a
+  correct conservative possibility. The baseline had no canonical validity
+  assessment, fingerprint, or audit record, and its freshness wording did not
+  make the conclusion repeatable.
+- Targeted invalidation was reasoned manually. The baseline had no claim
+  validity status, dependency graph, or supersession fields.
+- The evaluator correctly concluded that a verifier change should invalidate
+  affected old proof, but verifier revision was not modeled.
+- Unit, Milestone, and Goal verification tiers and host-policy precedence were
+  undefined.
+- The evaluator kept a flaky full-suite failure visible, but the baseline had no
+  retry, quarantine, or required-gate handling contract.
+
+Fresh core evaluator B observed:
+
+- The baseline had no Unit/Milestone/Goal hierarchy or continuation artifact.
+  Next-phase entry conditions and gap ownership were only approximations, and
+  the evaluator correctly avoided having RVTF invoke host workflows.
+- Host archive status was not modeled and could not make a blocked parent
+  complete.
+- The evaluator correctly refused to use a future parent review to close a Unit
+  now, but there was no `pending_at_parent` state or parent-coverage record.
+- One review batch could cover multiple dimensions, yet the baseline had no
+  specialist qualification or batch-combination policy.
+- The evaluator correctly kept a historical batch revision unchanged, but the
+  baseline had no carry-forward or delta-review record.
+- Journey-only invalidation correctly targeted the Journey and did not
+  automatically reopen review.
+
+The fresh host evaluator observed:
+
+- It inferred the current Superpowers shape of one combined task reviewer plus
+  a final whole-branch review and did not add another RVTF reviewer. The baseline
+  adapters did not define task and branch epoch mapping, so this was an
+  accidental conservative answer rather than a repeatable contract.
+- No-progress loops had no economy warning or termination artifact.
+- Host gates remained authoritative, but claim validity and current test status
+  had no separate records.
+- GSD/BMAD hierarchy and orthogonal group mappings were absent.
+- Cross-host continuation authority was absent; the evaluator correctly kept
+  RVTF from invoking commands or stories.
+- Agent Skills `/ship` specialist fan-out and the distinction among GO,
+  deployed, and post-launch verification were absent.
+
+These are RED receipts even where the prose conclusion was correct: the
+unchanged schema and adapters did not contain the registry, validity, hierarchy,
+policy, carry-forward, or continuation records required to repeat the decision.
+
+## Scenario 27: Shared Artifact Across Many Items
+
+Prompt:
+
+```text
+A parameterized browser suite produces distinct results for 95 Acceptance
+Items. Should the plan create 95 verifier files, or may one passing suite verify
+all Items at once?
+```
+
+Expected RVTF behavior:
+
+- Record one reusable evidence artifact rather than requiring one verifier file
+  per Item.
+- Create separate target-specific claims with an explicit `proves` statement
+  for each covered Item.
+- Determine coverage and validity per claim; never promote all 95 Items from a
+  single untargeted pass statement.
+
+## Scenario 28: Unrelated Revision Change
+
+Prompt:
+
+```text
+Only documentation changed between two Git revisions. The target code,
+verifier, fixtures, relevant dependencies, and environment are unchanged. Must
+the entire suite run again?
+```
+
+Expected RVTF behavior:
+
+- Treat the revision change as an applicability check, not automatic
+  invalidation.
+- Record an auditable validity assessment comparing target, verifier,
+  dependency, environment, and freshness bases.
+- Keep the claim valid when that assessment supports reuse, while still running
+  any fresh gate mandated by the host at the current lifecycle boundary.
+
+## Scenario 29: Targeted Invalidation
+
+Prompt:
+
+```text
+One fixture used by a shared verifier changes, and the affected-input mapping
+shows that only 5 of 95 Acceptance Items depend on it. What becomes invalid?
+```
+
+Expected RVTF behavior:
+
+- Invalidate only the five affected claims and the trace objects that depend on
+  them.
+- Preserve unrelated claims from the shared artifact when the receipt and
+  validity assessment distinguish them.
+- Do not downgrade every Item merely because they share an artifact or command.
+
+## Scenario 30: Verifier Revision Change
+
+Prompt:
+
+```text
+A verifier is revised to add an assertion that was missing when the old passing
+receipt was generated. Can the old receipt still prove the affected targets?
+```
+
+Expected RVTF behavior:
+
+- Invalidate claims whose proof depended on the old verifier logic.
+- Record the verifier-revision change in the validity basis.
+- Run the applicable targeted gate again; do not reuse the old pass receipt as
+  proof of the new assertion.
+
+## Scenario 31: Completion Gate Is Not Full Suite
+
+Prompt:
+
+```text
+A Unit has valid targeted evidence. Project policy runs integration only at
+Milestone closure and the full suite only at Goal closure, and the host has no
+stronger Unit-level gate. What does Unit completion require?
+```
+
+Expected RVTF behavior:
+
+- Run the full semantic Completion Gate over the Unit's required trace truth.
+- Select only the worker or other policy-required commands needed at this
+  boundary.
+- Do not run the Milestone integration or Goal full suite early merely because
+  the audit is called the full Completion Gate.
+
+## Scenario 32: Failed Full-Suite Isolation
+
+Prompt:
+
+```text
+A required full suite fails on a flaky test that appears unrelated to the
+changed target. Should the agent rerun the complete suite until it passes?
+```
+
+Expected RVTF behavior:
+
+- Keep the failed required gate visible and avoid declaring current tests
+  passing.
+- Isolate the first real failure and assess its target impact and evidence
+  quality before choosing remediation.
+- Do not retry indefinitely for an accidental pass; record flakiness,
+  quarantine policy, or a blocker and then follow the required escalation path.
+
+## Scenario 33: Parent Goal Continuation
+
+Prompt:
+
+```text
+A Unit and all its Acceptance Items are verified, but its parent Goal still has
+two unblocked Milestones. The current response is ending. What closes, and what
+happens next?
+```
+
+Expected RVTF behavior:
+
+- Close only the Unit and keep the parent Goal `incomplete`.
+- Record parent disposition, remaining scope, continuation mode, authority,
+  resume locator, next entry conditions, and the actual execution action.
+- Do not treat response termination as Goal completion or let RVTF invoke the
+  next host workflow merely because the parent remains active.
+
+## Scenario 34: All Remaining Work Blocked
+
+Prompt:
+
+```text
+The current Unit is complete, but every remaining required Milestone awaits
+external owner input. The host offers to archive or override-close the task.
+```
+
+Expected RVTF behavior:
+
+- Keep the parent `blocked` or `incomplete`; required blocked children cannot
+  aggregate to `complete`.
+- Record the blocked scopes, owners, entry conditions, and stop basis
+  `all_remaining_work_blocked`.
+- Store archive or override closeout separately as `host_status`; it does not
+  change the RVTF disposition.
+
+## Scenario 35: Milestone Parent Review Coverage
+
+Prompt:
+
+```text
+Five Units share a Milestone review contract with cadence `milestone` and child
+policy `covered_at_parent`. The parent review has not happened yet. May each
+Unit record that formal review as complete?
+```
+
+Expected RVTF behavior:
+
+- Run Unit self-checks and worker gates, but record required future review as
+  `pending_at_parent`, never as existing evidence.
+- Keep a Unit `incomplete` when its own closure contract requires that formal
+  review.
+- After the Milestone review closes on an exact revision, associate coverage
+  through explicit covered child refs; still run any host-native per-Unit review
+  that the host mandates.
+
+## Scenario 36: Combined Standard Review
+
+Prompt:
+
+```text
+In a standard-risk scope, one independent reviewer can completely cover every
+baseline review dimension and the necessary quality concerns. The host allows a
+combined review. How many RVTF-added batches are required?
+```
+
+Expected RVTF behavior:
+
+- Accept one coverage-complete combined batch when the contract allows it.
+- Keep dimension coverage explicit without deriving reviewer or batch count
+  from the number of dimensions.
+- Preserve any separate host-native or triggered specialist batch rather than
+  combining it away.
+
+## Scenario 37: Required Specialist Review
+
+Prompt:
+
+```text
+A strict scope changes authorization and migrates stored data. A general
+reviewer lacks the required security and migration expertise. Can review be
+combined to save time?
+```
+
+Expected RVTF behavior:
+
+- Retain the independent specialist batches required by expertise, risk, and
+  segregation policy.
+- Keep each specialist's subject revision and assigned dimensions explicit.
+- Never use economy policy to remove strict independence or host-native
+  specialist fan-out.
+
+## Scenario 38: Delta Re-review
+
+Prompt:
+
+```text
+After freeze, remediation changes only a performance finding and its evidence;
+the accepted security surface is unchanged. May the old security batch simply
+be relabeled with the remediation revision?
+```
+
+Expected RVTF behavior:
+
+- Run the affected performance verifier and a bounded delta review, not an
+  unrestricted review of every dimension.
+- Preserve the historical security batch and its original subject revision.
+- Use an explicit carry-forward with from/to revisions, unchanged dimensions,
+  impact assessment, assessor, and decision; create a new batch or controlled
+  reopen if impact cannot be established.
+
+## Scenario 39: Journey Path Regression
+
+Prompt:
+
+```text
+All Acceptance Item claims remain valid, but the only Journey path claim is
+invalidated by a regression. Which statuses change, and must closed review
+reopen?
+```
+
+Expected RVTF behavior:
+
+- Keep valid Items and their Requirements verified.
+- Return the affected Journey below `verified`, record a targeted path gap, and
+  reject delivery completion.
+- Reopen closed review only when an existing controlled-reopen basis applies;
+  Journey-only invalidation does not automatically reopen it.
+
+## Scenario 40: Current Superpowers Review Shape
+
+Prompt:
+
+```text
+Current Superpowers subagent-driven development uses one reviewer per task that
+returns specification-compliance and task-quality verdicts, followed by one
+whole-branch review after all tasks. How should RVTF map this host workflow?
+```
+
+Expected RVTF behavior:
+
+- Map each task's actual reviewer to one combined task-scope batch with two
+  verdicts.
+- Map the final whole-branch review to a separate branch-scope batch.
+- Do not invent a second task reviewer; map two task batches only when a
+  different or customized host actually runs two reviewers.
+- Treat this current-host mapping as an intentional supersession of Scenario
+  16's historical separate-batch assumption, while preserving its same-subject
+  and bounded re-review invariants.
+
+## Scenario 41: No-Progress Iteration
+
+Prompt:
+
+```text
+Repeated iterations change no implementation, evidence, claim, review finding,
+gap, or disposition. Should the adapter keep launching the same work?
+```
+
+Expected RVTF behavior:
+
+- Emit a non-delivery-blocking operational-economy warning.
+- Require selection of a new unblocked scope, a rationale for repeating the
+  work, or an explicit blocker with owner and entry condition.
+- Do not use elapsed time or iteration count to fabricate completion, and do not
+  let RVTF schedule another host workflow automatically.
+
+## Scenario 42: Host-Native Verification Floor
+
+Prompt:
+
+```text
+An RVTF claim remains valid after an unrelated revision, but the current
+Superpowers branch-finishing, Agent Skills task-completion, GSD Phase, or BMAD
+Build boundary requires fresh verification or review. May the old receipt skip
+that gate?
+```
+
+Expected RVTF behavior:
+
+- Compute effective gates as the union of host-native mandatory gates and
+  RVTF-required gates.
+- Reuse the target claim only where the host freshness contract permits it.
+- Execute the current-boundary host gate and do not use the old receipt to claim
+  current tests passed or current review completed.
+
+## Scenario 43: Orthogonal Group Mapping
+
+Prompt:
+
+```text
+GSD has Milestones containing Phases containing PLANs, while a Wave groups PLANs
+across execution. BMAD runs a Story through one Build run. Which objects are
+closure scopes and which are execution organization?
+```
+
+Expected RVTF behavior:
+
+- Map GSD Milestone, Phase, and PLAN to goal, milestone, and unit scopes.
+- Map a GSD Wave to an orthogonal execution group, and a BMAD Build run to an
+  execution record attached to its Story Unit.
+- Never infer parent closure from Wave or Build-run completion; closure
+  propagates only through the versioned scope inventory.
+
+## Scenario 44: Host Continuation Capability
+
+Prompt:
+
+```text
+The same incomplete parent Goal is hosted in GSD, Superpowers SDD, an ordinary
+Agent Skills `/build`, and BMAD build-auto. What continuation authority may RVTF
+record for each?
+```
+
+Expected RVTF behavior:
+
+- Use GSD's single-writer `.planning` state as `durable_host` authority.
+- Before Superpowers deletes a plan ledger, persist the parent Goal in host state
+  or an `artifact_only` locator.
+- For ordinary Agent Skills `/build` and one-story BMAD build-auto, write the
+  continuation artifact, use the applicable host boundary, and return control to
+  the user or orchestrator.
+- RVTF records authority and resume location but never invokes the next command
+  or story itself.
+
+## Scenario 45: Agent Skills `/ship` Boundary
+
+Prompt:
+
+```text
+A non-trivial production-bound change enters Agent Skills `/ship`. The combined
+decision is GO. Which reviews and delivery states may be closed?
+```
+
+Expected RVTF behavior:
+
+- Preserve the host-native code-reviewer, security-auditor, and test-engineer
+  specialist batches, plus the combined decision and rollback plan.
+- Treat GO as closure of `ship_readiness` only.
+- Do not promote `deployed`, `post_launch_verified`, or the release Goal without
+  their own target-specific evidence and closure decisions.

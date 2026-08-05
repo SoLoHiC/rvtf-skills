@@ -1,0 +1,105 @@
+# expected-error: opaque-cross-revision-validity-basis
+schema_version: "0.4.0"
+scope:
+  id: fixture:opaque-validity
+  title: Opaque cross-revision validity decision
+  mode: standard
+  sources:
+    - docs/design/negative-fixtures.md
+
+requirements:
+  - id: OPAQUE-VALIDITY-001
+    capability: evidence validity
+    type: behavior
+    source: docs/design/negative-fixtures.md#opaque-validity
+    validity:
+      status: accepted
+      owner: fixture-owner
+      rationale: Cross-revision proof requires an auditable assessment.
+    statement: A registry claim proves one canonical Item.
+    acceptance:
+      - id: OPAQUE-VALIDITY-001-AI-001
+        criterion: The registry claim remains applicable to the current revision.
+        source_ref:
+          path: docs/design/negative-fixtures.md
+          anchor: opaque-validity
+          revision: sha256:criterion-v1
+        verification:
+          method: automated-test
+          command: python3 tests/opaque_validity.py
+          expected: exits 0
+        status: verified
+        evidence:
+          - evidence_ref: EC-OPAQUE-001
+        gaps: []
+    status: verified
+    gaps: []
+
+journey_applicability:
+  scope_ref: fixture:opaque-validity
+  decision: not_required
+  rationale: This exact Item check has no ordered or causal path.
+journeys: []
+
+evidence_artifacts:
+  - id: EA-OPAQUE-001
+    kind: test-receipt
+    locator: artifacts/opaque-validity.json
+    generated_at: 2026-08-05T10:00:00Z
+    subject_revision: old123
+    verifier_ref: test:opaque-validity
+    verifier_revision: sha256:verifier-v1
+    dependency_fingerprint: sha256:inputs-v1
+    environment_fingerprint: python3.13-pyyaml6-linux
+    command_signature: python3 tests/opaque_validity.py
+    result: passed
+
+evidence_claims:
+  - id: EC-OPAQUE-001
+    artifact_ref: EA-OPAQUE-001
+    target_kind: acceptance_item
+    target_ref: OPAQUE-VALIDITY-001-AI-001
+    proves: The registry claim remains applicable to the current revision.
+    normal_gate: true
+    validity:
+      status: valid
+      assessment_ref: EVA-OPAQUE-001
+      checked_against_revision: new456
+
+evidence_validity_assessments:
+  - id: EVA-OPAQUE-001
+    claim_ref: EC-OPAQUE-001
+    from_revision: old123
+    checked_against_revision: new456
+    assessed_at: 2026-08-05T11:00:00Z
+    assessor_ref: host:opaque-fingerprint
+    policy_ref: verification-policy:opaque
+    basis:
+      opaque_fingerprint: sha256:unexplained
+    decision: valid
+
+verification_policy:
+  id: verification-policy:opaque
+  scope_ref: fixture:opaque-validity
+  host_native_required_gates:
+    - gate_ref: host:test-current-tree
+      lifecycle_boundary: task_completion
+      freshness: current_tree
+  tiers:
+    worker:
+      command_refs:
+        - test:opaque-targeted
+    batch:
+      command_refs:
+        - test:opaque-affected
+    milestone:
+      command_refs:
+        - test:opaque-integration
+    completion:
+      command_refs:
+        - trace:completion-audit
+  reuse_policy: reuse_valid_claims_then_run_missing_gates
+
+gaps: []
+review_findings: []
+scope_amendments: []

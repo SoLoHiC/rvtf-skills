@@ -1,0 +1,104 @@
+# expected-error: review-carry-forward-source-revision-mismatch
+schema_version: "0.4.0"
+scope:
+  id: fixture:revision-rebinding
+  title: Carry-forward contradicts the historical batch revision
+  mode: standard
+  sources:
+    - docs/design/negative-fixtures.md
+
+requirements: []
+journey_applicability:
+  scope_ref: fixture:revision-rebinding
+  decision: not_required
+  rationale: This fixture exercises review coverage carry-forward only.
+journeys: []
+
+review_applicability:
+  scope_ref: fixture:revision-rebinding
+  decision: required
+  mode: bounded
+  rationale: The fixture models a historical formal review batch.
+
+review_contract:
+  id: RC-REBIND-001
+  scope_ref: fixture:revision-rebinding
+  cadence: milestone
+  child_scope_policy: covered_at_parent
+  covered_child_scope_refs: []
+  batch_combination_policy: combined_allowed
+  host_native_required_batches: []
+  independence:
+    required: false
+  dimensions:
+    baseline:
+      - requirement-fidelity
+      - impact-and-ownership
+      - verification-and-closure
+    triggered: []
+
+review_epochs:
+  - id: RE-REBIND-001
+    contract: RC-REBIND-001
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: historical123
+    status: closed
+
+review_batches:
+  - id: RB-REBIND-001
+    epoch: RE-REBIND-001
+    host_kind: combined-review
+    subject_refs:
+      - kind: git-commit
+        ref: repository
+        revision: historical123
+    reviewer:
+      role: delivery-reviewer
+      relationship_to_implementer: independent
+      reviewer_ref: reviewer:delivery-001
+    dimension_coverage:
+      - dimension: requirement-fidelity
+        status: covered
+        findings: []
+      - dimension: impact-and-ownership
+        status: covered
+        findings: []
+      - dimension: verification-and-closure
+        status: covered
+        findings: []
+    coverage_status: complete
+    limitations: []
+
+review_impact_assessments:
+  - id: RIA-REBIND-001
+    source_batch_ref: RB-REBIND-001
+    from_revision: silently-rebound456
+    to_revision: current789
+    changed_surface:
+      - documentation-only
+    unchanged_dimensions:
+      - requirement-fidelity
+      - impact-and-ownership
+      - verification-and-closure
+    rationale: The reviewed delivery surface is unchanged.
+    assessor_ref: reviewer:delivery-001
+    decision: accepted
+
+review_coverage_carry_forward:
+  - id: RCF-REBIND-001
+    source_batch_ref: RB-REBIND-001
+    from_revision: silently-rebound456
+    to_revision: current789
+    unchanged_dimensions:
+      - requirement-fidelity
+      - impact-and-ownership
+      - verification-and-closure
+    impact_assessment_ref: RIA-REBIND-001
+    assessor_ref: reviewer:delivery-001
+    decision: accepted
+
+gaps: []
+review_findings: []
+scope_amendments: []

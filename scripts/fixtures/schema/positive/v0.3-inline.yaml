@@ -1,0 +1,75 @@
+schema_version: "0.3.0"
+scope:
+  id: fixture:v0.3-inline
+  title: Legacy inline Item and Journey evidence
+  mode: standard
+  sources:
+    - docs/design/legacy-contract.md
+
+requirements:
+  - id: LEGACY-TRACE-001
+    capability: legacy trace compatibility
+    type: behavior
+    source: docs/design/legacy-contract.md#trace
+    validity:
+      status: accepted
+      owner: fixture-owner
+      rationale: The legacy inline representation remains supported.
+    statement: Legacy inline evidence can verify one Acceptance Item.
+    acceptance:
+      - id: LEGACY-TRACE-001-AI-001
+        criterion: The legacy trace command exits successfully.
+        source_ref:
+          path: docs/design/legacy-contract.md
+          anchor: trace
+          revision: sha256:legacy-contract-v1
+        verification:
+          method: automated-test
+          command: python3 tests/legacy_trace.py
+          expected: exits 0
+        status: verified
+        evidence:
+          - artifact: artifacts/legacy-trace.json
+            subject_revision: legacy123
+            quality: strong
+            target: LEGACY-TRACE-001-AI-001
+            proves: The legacy trace command exits successfully.
+            normal_gate: true
+        gaps: []
+    status: verified
+    gaps: []
+
+journey_applicability:
+  scope_ref: fixture:v0.3-inline
+  decision: required
+  rationale: Acceptance depends on the ordered actor path reaching its outcome.
+  triggers:
+    - ordered observable steps
+    - item evidence alone cannot prove the expected outcome
+
+journeys:
+  - id: J-LEGACY-TRACE-001
+    name: Complete the legacy trace path
+    actor: fixture-runner
+    goal: Produce a legacy trace result.
+    expected_outcome: The legacy trace result is accepted.
+    steps:
+      - id: J-LEGACY-TRACE-001-S1
+        observable_outcome: The trace command produces the accepted result.
+        acceptance_item_ids:
+          - LEGACY-TRACE-001-AI-001
+    path_evidence:
+      - artifact: artifacts/legacy-trace-journey.json
+        subject_revision: legacy123
+        covers_steps:
+          - J-LEGACY-TRACE-001-S1
+        proves_order: true
+        proves_outcome: true
+        quality: strong
+        normal_gate: true
+    status: verified
+    gaps: []
+
+gaps: []
+review_findings: []
+scope_amendments: []
