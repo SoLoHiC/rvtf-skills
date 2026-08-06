@@ -11,14 +11,24 @@
     "THIRD_PARTY_NOTICES.md",
     "VERSION",
     "skills",
-    "scripts"
+    "scripts/ci.sh",
+    "scripts/fixtures",
+    "scripts/install.sh",
+    "scripts/package.sh",
+    "scripts/release.py",
+    "scripts/validate-schema-examples.py",
+    "scripts/validate.sh",
+    "scripts/validate_skills.py"
   ],
   "scripts": {
+    "test": "PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -v",
     "validate": "scripts/validate.sh",
+    "validate:skills": "python3 scripts/validate_skills.py",
     "skills:list": "npx skills add . --list",
     "skills:add:project": "npx skills add . --skill '*' -a codex -y --copy",
     "skills:add:global:codex": "npx skills add . --skill '*' -g -a codex -y --copy",
-    "package": "scripts/package.sh"
+    "package": "scripts/package.sh",
+    "ci": "scripts/ci.sh"
   },
   "keywords": [
     "agent-skills",

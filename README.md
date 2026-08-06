@@ -191,6 +191,41 @@ scripts/
 package.json
 ```
 
+## Release Automation
+
+Release preparation is a reviewed source change; publishing is a separate
+workflow decision. For a future release, update the project version and
+`CHANGELOG.md` in a pull request:
+
+```bash
+python3 scripts/release.py --root . version --set 0.4.1
+# edit CHANGELOG.md and commit the release preparation
+```
+
+After the pull request is merged, capture the exact `main` commit and run the
+dry-run candidate gate:
+
+```bash
+release_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+gh workflow run release.yml --ref main \
+  -f version=0.4.1 -f expected_sha="${release_sha}" -f dry_run=true
+```
+
+Inspect the run summary and use the same `release_sha` for the formal run:
+
+```bash
+gh workflow run release.yml --ref main \
+  -f version=0.4.1 -f expected_sha="${release_sha}" -f dry_run=false
+gh run list --workflow release.yml --limit 1
+gh run watch RUN_ID --exit-status
+```
+
+The formal workflow creates or resumes the annotated tag and GitHub Release,
+uploads the package and `SHA256SUMS`, then downloads the published assets and
+verifies the checksum. A tag or Release that points to a different commit is a
+hard failure and is never deleted automatically. This release-automation change
+does not change `0.4.0` or create a new tag.
+
 ## Development
 
 Validate all five Skills plus the deterministic positive/negative schema and

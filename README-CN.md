@@ -176,6 +176,38 @@ scripts/
 package.json
 ```
 
+## 发布自动化
+
+版本准备是经过评审的源码变更，正式发布是独立的 workflow 决策。准备未来
+版本时，在 pull request 中更新版本号和 `CHANGELOG.md`：
+
+```bash
+python3 scripts/release.py --root . version --set 0.4.1
+# 编辑 CHANGELOG.md，然后提交版本准备变更
+```
+
+pull request 合并后，记录确切的 `main` commit，先运行候选 dry-run：
+
+```bash
+release_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+gh workflow run release.yml --ref main \
+  -f version=0.4.1 -f expected_sha="${release_sha}" -f dry_run=true
+```
+
+检查 workflow 摘要后，使用同一个 `release_sha` 运行正式发布：
+
+```bash
+gh workflow run release.yml --ref main \
+  -f version=0.4.1 -f expected_sha="${release_sha}" -f dry_run=false
+gh run list --workflow release.yml --limit 1
+gh run watch RUN_ID --exit-status
+```
+
+正式 workflow 会创建或续跑 annotated tag 和 GitHub Release，上传包与
+`SHA256SUMS`，再下载发布资产并校验 checksum。Tag 或 Release 如果指向不同
+commit，会直接失败，workflow 不会自动删除它们。本次发布自动化改造不改变
+`0.4.0`，也不会创建新 tag。
+
 ## 开发
 
 验证全部五个 Skills，以及确定性 positive/negative schema 和 invariant

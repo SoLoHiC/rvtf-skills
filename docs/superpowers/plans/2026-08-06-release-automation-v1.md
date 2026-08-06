@@ -16,11 +16,11 @@
 - Create: `scripts/tests/test_validate_skills.py`
 - Create: `scripts/tests/test_release.py`
 
-- [ ] **Step 1: Add validator behavior tests**
+- [x] **Step 1: Add validator behavior tests**
 
 Cover one valid frontmatter fixture and these failures: missing `SKILL.md`, no frontmatter, unexpected key, missing `name`, invalid name, overlong name, missing description, non-string description, angle brackets, and overlong description. Import the production modules by path only after the test is present.
 
-- [ ] **Step 2: Run the validator tests before implementation**
+- [x] **Step 2: Run the validator tests before implementation**
 
 Run:
 
@@ -30,11 +30,11 @@ PYTHONPATH=scripts python3 -m unittest scripts.tests.test_validate_skills -v
 
 Expected: collection/import failures because `scripts/validate_skills.py` does not exist yet.
 
-- [ ] **Step 3: Add release helper behavior tests**
+- [x] **Step 3: Add release helper behavior tests**
 
 Use temporary directories and real JSON/YAML/tar data. Cover strict version acceptance, mismatch between `VERSION` and `package.json`, changelog section extraction, missing/empty changelog section, package identity/license/legal-file audit, and rejection of archive paths containing `..` or absolute names.
 
-- [ ] **Step 4: Run the release helper tests before implementation**
+- [x] **Step 4: Run the release helper tests before implementation**
 
 Run:
 
@@ -52,11 +52,11 @@ Expected: collection/import failures because `scripts/release.py` does not exist
 - Create: `requirements-ci.txt`
 - Modify: `scripts/validate.sh`
 
-- [ ] **Step 1: Implement the minimal metadata validator**
+- [x] **Step 1: Implement the minimal metadata validator**
 
 Implement `validate_skill(path) -> tuple[bool, str]` with PyYAML and the existing metadata contract. Implement `main()` to validate every direct directory under `skills/`, print one result per skill, and exit nonzero on any failure. Do not import or call the external Codex validator.
 
-- [ ] **Step 2: Run validator tests and existing schema tests**
+- [x] **Step 2: Run validator tests and existing schema tests**
 
 Run:
 
@@ -67,15 +67,15 @@ PYTHON_BIN=/usr/bin/python3 scripts/validate-schema-examples.py
 
 Expected: validator tests pass; schema fixtures remain `3 accepted, 4 expected rejected, 0 failures` and mutations remain `39 passed, 0 failures`.
 
-- [ ] **Step 3: Implement structured release operations**
+- [x] **Step 3: Implement structured release operations**
 
 Implement subcommands `version --check VERSION`, `version --set VERSION`, `notes VERSION`, and `audit-package ARCHIVE VERSION`. Use `json.load`, `yaml.safe_load`, and `tarfile`; enforce `X.Y.Z`, exact package/version consistency, exactly one non-empty changelog section, the five current Skill directories, legal files, and safe archive paths. `version --set` must update only `VERSION` and the JSON version field while preserving valid JSON.
 
-- [ ] **Step 4: Pin the CI Python dependency**
+- [x] **Step 4: Pin the CI Python dependency**
 
 Add the reviewed PyYAML version used by the project validation environment to `requirements-ci.txt`. Do not add a runtime dependency to the package.
 
-- [ ] **Step 5: Run release helper tests and existing validation**
+- [x] **Step 5: Run release helper tests and existing validation**
 
 Run:
 
@@ -94,19 +94,19 @@ Expected: all new tests pass and the existing five-Skill/schema/mutation gate re
 - Modify: `scripts/package.sh`
 - Create: `scripts/ci.sh`
 
-- [ ] **Step 1: Add npm scripts for test and CI**
+- [x] **Step 1: Add npm scripts for test and CI**
 
 Add `test` for the Python unittest discovery command, `validate:skills` for the repository validator, and `ci` for `scripts/ci.sh`. Keep the package version at `0.4.0`.
 
-- [ ] **Step 2: Extend packaging with structured archive audit**
+- [x] **Step 2: Extend packaging with structured archive audit**
 
 After `npm pack`, call `release.py audit-package` against the generated archive. Keep `dist/` ignored and do not commit generated artifacts.
 
-- [ ] **Step 3: Implement `scripts/ci.sh`**
+- [x] **Step 3: Implement `scripts/ci.sh`**
 
 Run the repository validation, test suite, package build, checksum generation, and archive audit. Extract the archive into a temporary directory and run a pinned `skills` CLI with `add <unpacked-package> --list`; fail if the command fails or does not report all five package Skill names. Use `mktemp -d` and a trap for cleanup.
 
-- [ ] **Step 4: Verify the local CI path**
+- [x] **Step 4: Verify the local CI path**
 
 Run:
 
@@ -124,11 +124,11 @@ Expected: CI exits 0, the version remains `0.4.0`, and no Skill or version diff 
 - Create: `scripts/tests/test_workflows.py`
 - Create: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Add failing workflow contract tests**
+- [x] **Step 1: Add failing workflow contract tests**
 
 Parse both workflow YAML files with a loader that preserves the string key `on`. Assert CI has pull request, push, and manual triggers; read-only contents permission; pinned checkout/setup actions; and a command invoking `scripts/ci.sh`.
 
-- [ ] **Step 2: Run the workflow tests before adding CI**
+- [x] **Step 2: Run the workflow tests before adding CI**
 
 Run:
 
@@ -138,11 +138,11 @@ PYTHONPATH=scripts python3 -m unittest scripts.tests.test_workflows -v
 
 Expected: fail because `.github/workflows/ci.yml` does not exist.
 
-- [ ] **Step 3: Add CI workflow**
+- [x] **Step 3: Add CI workflow**
 
 Use `ubuntu-latest`, Python 3.12, Node 24, pinned action commit SHAs, `pip install -r requirements-ci.txt`, and `./scripts/ci.sh`. Set `permissions: contents: read`. Do not trigger a Release or tag from CI.
 
-- [ ] **Step 4: Run workflow tests and local CI**
+- [x] **Step 4: Run workflow tests and local CI**
 
 Run:
 
@@ -161,23 +161,23 @@ Expected: workflow contract tests pass and the local CI path exits 0.
 - Modify: `README.md`
 - Modify: `README-CN.md`
 
-- [ ] **Step 1: Extend failing workflow contract tests**
+- [x] **Step 1: Extend failing workflow contract tests**
 
 Assert release workflow is `workflow_dispatch` only with required `version`, `expected_sha`, and `dry_run` inputs; uses a per-version concurrency group; has a read-only prepare job and a write-enabled publish job; contains a SHA equality guard; gates all external mutation on `!inputs.dry_run`; and has post-publish download/checksum verification.
 
-- [ ] **Step 2: Implement the prepare job**
+- [x] **Step 2: Implement the prepare job**
 
 Checkout `main` at full depth, install pinned dependencies, reject non-`main` refs and SHA mismatch, run `release.py version --check`, `release.py notes`, and `scripts/ci.sh`, create `SHA256SUMS`, and upload the archive, checksum, and notes as an internal artifact. The job must not have `contents: write`.
 
-- [ ] **Step 3: Implement the publish job**
+- [x] **Step 3: Implement the publish job**
 
 Require the prepare job and `!inputs.dry_run`. Give it `contents: write`, use the `release` environment, download the prepared artifact, verify the expected SHA, and implement these shell-visible states: create the annotated tag if absent; verify an existing tag peels to the expected SHA; create a draft Release if absent; replace draft assets with `--clobber`; refuse to mutate a published Release unless its title and asset digests already match; publish the draft; download both assets; and run `shasum -a 256 -c SHA256SUMS`.
 
-- [ ] **Step 4: Document operator commands and state semantics**
+- [x] **Step 4: Document operator commands and state semantics**
 
 Add a concise “Release automation” section to both READMEs covering version PR preparation, dry-run, formal dispatch, `gh run watch`, completion evidence, and partial-state recovery. State explicitly that this infrastructure change does not bump `v0.4.0` or create a new tag.
 
-- [ ] **Step 5: Run workflow contract tests and diff checks**
+- [x] **Step 5: Run workflow contract tests and diff checks**
 
 Run:
 
@@ -194,7 +194,7 @@ Expected: all workflow assertions pass, no whitespace errors exist, and the fina
 **Files:**
 - Verify all changed files; do not add generated `dist/` contents.
 
-- [ ] **Step 1: Run the complete local gate**
+- [x] **Step 1: Run the complete local gate**
 
 Run:
 
@@ -206,7 +206,7 @@ git diff --check
 
 Expected: all tests and archive checks pass.
 
-- [ ] **Step 2: Verify no Skill or release mutation**
+- [x] **Step 2: Verify no Skill or release mutation**
 
 Run:
 
