@@ -210,6 +210,12 @@ commit，会直接失败，workflow 不会自动删除它们。本次发布自�
 
 ## 开发
 
+运行 Python 验证命令前，先安装固定版本的 CI 依赖：
+
+```bash
+python3 -m pip install --requirement requirements-ci.txt
+```
+
 验证全部五个 Skills，以及确定性 positive/negative schema 和 invariant
 fixtures：
 

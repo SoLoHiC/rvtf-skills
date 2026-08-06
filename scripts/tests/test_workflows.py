@@ -1,4 +1,5 @@
 import re
+import json
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,10 @@ def load_workflow(name: str) -> tuple[dict, str]:
 
 
 class WorkflowContractTests(unittest.TestCase):
+    def test_npm_test_honors_python_bin_dependency_selection(self) -> None:
+        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        self.assertIn("${PYTHON_BIN:-python3}", package["scripts"]["test"])
+
     def test_ci_is_read_only_and_runs_local_ci(self) -> None:
         document, text = load_workflow("ci.yml")
         self.assertIn("push", document["on"])

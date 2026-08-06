@@ -228,6 +228,13 @@ does not change `0.4.0` or create a new tag.
 
 ## Development
 
+Install the pinned CI dependency before running the Python-backed validation
+commands:
+
+```bash
+python3 -m pip install --requirement requirements-ci.txt
+```
+
 Validate all five Skills plus the deterministic positive/negative schema and
 invariant fixtures:
 

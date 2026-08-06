@@ -21,7 +21,7 @@
     "scripts/validate_skills.py"
   ],
   "scripts": {
-    "test": "PYTHONPATH=scripts python3 -m unittest discover -s scripts/tests -v",
+    "test": "PYTHONPATH=scripts ${PYTHON_BIN:-python3} -m unittest discover -s scripts/tests -v",
     "validate": "scripts/validate.sh",
     "validate:skills": "python3 scripts/validate_skills.py",
     "skills:list": "npx skills add . --list",
