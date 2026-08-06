@@ -4,8 +4,11 @@
   "description": "Requirements-to-Verification Traceability Framework skills and adapters.",
   "type": "module",
   "files": [
+    "CHANGELOG.md",
+    "LICENSE",
     "README.md",
     "README-CN.md",
+    "THIRD_PARTY_NOTICES.md",
     "VERSION",
     "skills",
     "scripts"
@@ -33,7 +36,7 @@
   "bugs": {
     "url": "https://github.com/SoLoHiC/rvtf-skills/issues"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=18"
   }

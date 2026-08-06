@@ -8,11 +8,11 @@ It is designed for agentic software work where a plan may be detailed, tests may
 pass, and implementation tasks may be checked off, but the actual delivery still
 needs evidence that each requirement was satisfied without unbounded scope creep.
 
-This repository contains the implemented RVTF `0.4.0` candidate. It retains the
-`0.3.0` Requirement Trace, canonical Acceptance Item, and Journey Trace truth
-model, and adds an Operational Economy Plane for organizing proof and execution
-without weakening that truth. Candidate version metadata is not by itself a
-package, install, merge, tag, or publication claim.
+RVTF `0.4.0` is the first formal release. It retains the `0.3.0` Requirement
+Trace, canonical Acceptance Item, and Journey Trace truth model, and adds an
+Operational Economy Plane for organizing proof and execution without weakening
+that truth. The `v0.4.0` tag and GitHub Release identify the published revision;
+version metadata in an arbitrary checkout does not by itself prove publication.
 
 English | [中文](./README-CN.md)
 
@@ -51,7 +51,7 @@ No review finding becomes implementation work until it is classified and linked
 to a requirement decision.
 ```
 
-## RVTF 0.4.0 Candidate Capabilities
+## RVTF 0.4.0 Capabilities
 
 - Delivery truth remains authoritative. Economy policy may reduce duplicate
   work, but the exact gate set is `host-native mandatory gates ∪ RVTF-required
@@ -225,3 +225,10 @@ Create an npm-style package archive under `dist/`:
 ```bash
 scripts/package.sh
 ```
+
+## License
+
+RVTF Skills is available under the [MIT License](./LICENSE). Compatibility
+references, pinned upstream revisions, third-party license notices, and the
+BMAD trademark boundary are documented in
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).

@@ -4,11 +4,11 @@ Requirements-to-Verification Traceability Framework (RVTF，需求到验证的�
 
 它面向 agentic 软件工程场景：计划可能很详细，测试可能已经通过，任务列表也可能已经完成，但我们仍然需要证明每一项需求都被充分实现，并且评审过程中发现的问题没有无边界地膨胀成新需求。
 
-当前仓库包含已实现的 RVTF `0.4.0` 候选版。它保留 `0.3.0` 的
-Requirement Trace、canonical Acceptance Item 和 Journey Trace 交付真值模型，
-并新增 Operational Economy Plane，用于在不降低真实性的前提下组织
-证据与执行。候选版版本 metadata 本身不代表已打包、安装、合并、
-打 tag 或发布。
+RVTF `0.4.0` 是首个正式发布版本。它保留 `0.3.0` 的 Requirement Trace、
+canonical Acceptance Item 和 Journey Trace 交付真值模型，并新增
+Operational Economy Plane，用于在不降低真实性的前提下组织证据与执行。
+`v0.4.0` tag 和 GitHub Release 标识正式发布的 revision；任意 checkout 中的
+版本 metadata 本身不能证明已经发布。
 
 中文 | [English](./README.md)
 
@@ -47,7 +47,7 @@ to a requirement decision.
 
 也就是说，RVTF 不是阻止 review 发现问题，而是阻止 review finding 无边界地变成新需求。
 
-## RVTF 0.4.0 候选能力
+## RVTF 0.4.0 能力
 
 - Delivery truth 始终保持权威。Economy policy 可减少重复工作，但精确的
   gate 集合是 `host-native mandatory gates ∪ RVTF-required gates`；对
@@ -209,3 +209,9 @@ npx skills add ./rvtf-skills --skill '*' -a codex -y --copy
 ```bash
 scripts/package.sh
 ```
+
+## 许可证
+
+RVTF Skills 使用 [MIT License](./LICENSE)。兼容性引用、固定的上游 revision、
+第三方许可证声明以及 BMAD 商标边界记录在
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 中。
